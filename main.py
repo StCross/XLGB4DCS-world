@@ -141,10 +141,10 @@ def a2a_dcs():
         if scale == '':
             scale = 'all'
     while model_type not in [
-            'lgb', 'svm', 'nb', 'linear', 'logistic', 'ensemble', 'lstm'
+            'lgb', 'xgb', 'svm', 'nb', 'linear', 'logistic', 'ensemble', 'lstm'
     ]:
         model_type = input(
-            '请输入待训练的模型类型(lstm or lgb or svm or nb or linear or logistic or ensemble): '
+            '请输入待训练的模型类型(lstm or lgb or xgb or svm or nb or linear or logistic or ensemble): '
         )
         if model_type == '':
             model_type = 'lgb'
