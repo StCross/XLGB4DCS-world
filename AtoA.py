@@ -5,6 +5,7 @@ import sys
 import joblib
 import math
 import lightgbm as lgb
+import xgboost as xgb
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -57,7 +58,7 @@ class AtoA:
             # 计算敌机的速度，先用diffh函数得到和上一时刻xyz差值，然后除以时间得到速度
             for f in ['x', 'y', 'z']:
                 data['enemy_v_{}'.format(f)] = data.groupby('id')[
-                    'enemy_{}'.format(f)].diff(1) / 0.02
+                                                   'enemy_{}'.format(f)].diff(1) / 0.02
             # 敌我两机加速度，先用diffh函数得到和上一时刻v_x,v_y,v_z差值，然后除以时间得到加速度
             for f in ['v_x', 'v_y', 'v_z']:
                 data[f'my_{f}_acc'] = data.groupby(
@@ -69,17 +70,17 @@ class AtoA:
                 data[f'{f}_me_minus'] = data[f'my_{f}'] - data[f'enemy_{f}']
 
         # 飞机之间的距离
-        data['distance'] = ((data['my_x'] - data['enemy_x'])**2 +
-                            (data['my_y'] - data['enemy_y'])**2 +
-                            (data['my_z'] - data['enemy_z'])**2)**0.5
+        data['distance'] = ((data['my_x'] - data['enemy_x']) ** 2 +
+                            (data['my_y'] - data['enemy_y']) ** 2 +
+                            (data['my_z'] - data['enemy_z']) ** 2) ** 0.5
 
         # 瞄准夹角
         data['cos'] = ((data['my_v_x'] * (data['enemy_x'] - data['my_x'])) +
                        (data['my_v_y'] * (data['enemy_y'] - data['my_y'])) +
                        (data['my_v_z'] * (data['enemy_z'] - data['my_z'])))
         # 合速度
-        data['speedAll'] = ((data['my_v_x']**2 + data['my_v_y']**2 +
-                             data['my_v_z']**2)**0.5)
+        data['speedAll'] = ((data['my_v_x'] ** 2 + data['my_v_y'] ** 2 +
+                             data['my_v_z'] ** 2) ** 0.5)
         # 夹角cos值
         data['cosValue'] = data['cos'] / (data['speedAll'] * data['distance'])
         # 缺失值补0
@@ -97,17 +98,17 @@ class AtoA:
         # 将字典转为dataframe格式
         data = pd.DataFrame(row_dict, index=[0])
         # 飞机之间的距离
-        data['distance'] = ((data['my_x'] - data['enemy_x'])**2 +
-                            (data['my_y'] - data['enemy_y'])**2 +
-                            (data['my_z'] - data['enemy_z'])**2)**0.5
+        data['distance'] = ((data['my_x'] - data['enemy_x']) ** 2 +
+                            (data['my_y'] - data['enemy_y']) ** 2 +
+                            (data['my_z'] - data['enemy_z']) ** 2) ** 0.5
 
         # 瞄准夹角
         data['cos'] = ((data['my_v_x'] * (data['enemy_x'] - data['my_x'])) +
                        (data['my_v_y'] * (data['enemy_y'] - data['my_y'])) +
                        (data['my_v_z'] * (data['enemy_z'] - data['my_z'])))
         # 合速度
-        data['speedAll'] = ((data['my_v_x']**2 + data['my_v_y']**2 +
-                             data['my_v_z']**2)**0.5)
+        data['speedAll'] = ((data['my_v_x'] ** 2 + data['my_v_y'] ** 2 +
+                             data['my_v_z'] ** 2) ** 0.5)
         # 夹角cos值
         data['cosValue'] = data['cos'] / (data['speedAll'] * data['distance'])
         # 缺失值补0
@@ -129,9 +130,9 @@ class AtoA:
 
         # 飞机之间的距离
         data['distance'] = (
-            (data['my_position_x'] - data['enemy_position_x'])**2 +
-            (data['my_position_y'] - data['enemy_position_y'])**2 +
-            (data['my_position_z'] - data['enemy_position_z'])**2)**0.5
+                                   (data['my_position_x'] - data['enemy_position_x']) ** 2 +
+                                   (data['my_position_y'] - data['enemy_position_y']) ** 2 +
+                                   (data['my_position_z'] - data['enemy_position_z']) ** 2) ** 0.5
         # 向量乘法，向量 a = （x,y,z） b = (x2,y2,z2) c = (x3,y3,z3),a代表我机速度向量
         # b代表位置向量，c代表敌机位置向量，我机中心到敌机中心向量d = c - b
         # d与a之间cos = d×a/(|d|*|a|)
@@ -142,8 +143,8 @@ class AtoA:
                        (data['my_speed_z'] *
                         (data['enemy_position_z'] - data['my_position_z'])))
         # 速度向量
-        data['speedAll'] = ((data['my_speed_x']**2 + data['my_speed_y']**2 +
-                             data['my_speed_z']**2)**0.5)
+        data['speedAll'] = ((data['my_speed_x'] ** 2 + data['my_speed_y'] ** 2 +
+                             data['my_speed_z'] ** 2) ** 0.5)
         # 向量之间夹角
         data['cosValue'] = data['cos'] / (data['speedAll'] * data['distance'])
         # 敌我两机位置交互式差值
@@ -189,7 +190,7 @@ class AtoA:
         enemy_speed_z = row['enemy_speed_z']
         heading = row['Heading']
         disp_y = (bullet_speed * math.sin(pitch) * my_speed_y / abs(my_speed_y)
-                  + my_speed_y) * t - 4.9 * t**2 - enemy_speed_y * t
+                  + my_speed_y) * t - 4.9 * t ** 2 - enemy_speed_y * t
         disp_x = (bullet_speed * math.cos(pitch) * math.cos(180 - heading) *
                   my_speed_x / abs(my_speed_x) +
                   my_speed_x) * t - enemy_speed_x * t
@@ -211,7 +212,7 @@ class AtoA:
             'enemy_V': 'enemy_y',
             'enemy_Altitude': 'enemy_z',
         },
-                    inplace=True)
+            inplace=True)
 
         # 计算我机速度
         data = pd.concat([
@@ -222,13 +223,13 @@ class AtoA:
                 'speed_z': data.groupby('id')['z'].diff()
             })
         ],
-                         sort=False,
-                         axis=1)
+            sort=False,
+            axis=1)
         data.fillna(0, inplace=True)
         data[['speed_x', 'speed_y',
               'speed_z']] = data[['speed_x', 'speed_y', 'speed_z']] / 0.05
-        data['speed'] = data.apply(lambda x: np.sqrt(x['speed_x']**2 + x[
-            'speed_y']**2 + x['speed_z']**2),
+        data['speed'] = data.apply(lambda x: np.sqrt(x['speed_x'] ** 2 + x[
+            'speed_y'] ** 2 + x['speed_z'] ** 2),
                                    axis=1)
 
         # 计算敌机速度
@@ -240,21 +241,21 @@ class AtoA:
                 'enemy_speed_z': data.groupby('id')['enemy_z'].diff()
             })
         ],
-                         sort=False,
-                         axis=1)
+            sort=False,
+            axis=1)
         data.fillna(0, inplace=True)
         data[[
             'enemy_speed_x', 'enemy_speed_y', 'enemy_speed_z'
         ]] = data[['enemy_speed_x', 'enemy_speed_y', 'enemy_speed_z']] / 0.05
         data['enemy_speed'] = data.apply(
-            lambda x: np.sqrt(x['enemy_speed_x']**2 + x['enemy_speed_y']**2 +
-                              x['enemy_speed_z']**2),
+            lambda x: np.sqrt(x['enemy_speed_x'] ** 2 + x['enemy_speed_y'] ** 2 +
+                              x['enemy_speed_z'] ** 2),
             axis=1)
 
         # 计算敌我距离
         data['distance'] = data.apply(lambda x: np.sqrt(
-            (x['x'] - x['enemy_x'])**2 + (x['y'] - x['enemy_y'])**2 +
-            (x['z'] - x['enemy_z'])**2),
+            (x['x'] - x['enemy_x']) ** 2 + (x['y'] - x['enemy_y']) ** 2 +
+            (x['z'] - x['enemy_z']) ** 2),
                                       axis=1)
 
         # 计算速度与敌我连线夹角
@@ -541,9 +542,27 @@ class AtoA:
                                        reg_alpha=10,
                                        reg_lambda=12,
                                        random_state=self.seed,
-                                       is_unbalance = True,
+                                       is_unbalance=True,
                                        metric='auc')
         return lgb_model
+
+    def _xgb(self):
+        xgb_model = xgb.XGBClassifier(booster='gbtree',
+                                      objective='binary:logistic',
+                                      eval_metric='auc',
+                                      silent=0,
+                                      eta=0.01,
+                                      gamma=0.1,
+                                      max_depth=6,
+                                      min_child_weight=3,
+                                      subsample=0.7,
+                                      colsample_bytree=0.5,
+                                      reg_alpha=0,
+                                      reg_lambda=1,
+                                      n_estimators=100000,
+                                      seed=2021
+                                      )
+        return xgb_model
 
     # 定义svm模型
     @staticmethod
@@ -694,52 +713,38 @@ class AtoA:
             print("无该验证方法!")
             exit(-1)
 
-    def _train_lgb(self, raw_train, val_type, k, percent_train=0.8):
-        """ 训练lightgbm模型
-        Args:
-            raw_train(dataframe): 原始数据
-            val_type(string): 验证方式
-            k(int): 交叉折数
-            percent_train(float): 训练集比例
-        Returns:
-            model: 训练模型
-            importance(dataframe): 特征重要度
-            best_thread(float): 最佳阈值
-        """
+    def _train_xgb(self, raw_train, val_type, k, percent_train=0.8):
         # 获取保留列名
         feature_names = self._feature_name()
         if val_type == 'hold-out':  # 留出法
             X_train, X_val, y_train, y_val = self._hold_out(
                 raw_train, percent_train)
-            # 获取lgb模型
-            lgb_model = self._lgb()
-            # 模型训练，使用早停策略
-            lgb_model.fit(X_train,
+            xgb_model = self._xgb()
+            xgb_model.fit(X_train,
                           y_train,
-                          eval_names=['train', 'valid'],
                           eval_set=[(X_train, y_train), (X_val, y_val)],
                           verbose=100,
                           early_stopping_rounds=50)
             # 获取特征重要性
             df_importance = pd.DataFrame({
                 'column':
-                feature_names,
+                    feature_names,
                 'importance':
-                lgb_model.feature_importances_,
+                    xgb_model.feature_importances_,
             }).sort_values(by='importance',
                            ascending=False).reset_index(drop=True)
             # 最大最小归一
             df_importance['importance'] = (
-                df_importance['importance'] -
-                df_importance['importance'].min()) / (
-                    df_importance['importance'].max() -
-                    df_importance['importance'].min())
+                                                  df_importance['importance'] -
+                                                  df_importance['importance'].min()) / (
+                                                  df_importance['importance'].max() -
+                                                  df_importance['importance'].min())
             # 模型预测
-            pred_val = lgb_model.predict_proba(X_val)[:, 1]
+            pred_val = xgb_model.predict_proba(X_val)[:, 1]
             X_val['pred_prob'] = pred_val
             # 搜寻最佳阈值
             best_thread = self._BC_thread_search(y_val, pred_val)
-            return lgb_model, df_importance, best_thread
+            return xgb_model, df_importance, best_thread
 
         elif val_type == 'k-fold':
             # 创建模型保存列表
@@ -756,11 +761,10 @@ class AtoA:
                 X_train, X_val, y_train, y_val = member[0], member[1], member[
                     2], member[3]
                 # 获取lgb模型并且编号
-                names['lgb_%s' % i] = self._lgb()
+                names['lgb_%s' % i] = self._xgb()
                 # 模型训练，使用早停策略
                 names['lgb_%s' % i].fit(X_train,
                                         y_train,
-                                        eval_names=['train', 'valid'],
                                         eval_set=[(X_train, y_train),
                                                   (X_val, y_val)],
                                         verbose=100,
@@ -768,9 +772,9 @@ class AtoA:
                 # 获取特征重要性
                 df_importance = pd.DataFrame({
                     'column':
-                    feature_names,
+                        feature_names,
                     'importance':
-                    names['lgb_%s' % i].feature_importances_,
+                        names['lgb_%s' % i].feature_importances_,
                 }).sort_values(by='importance',
                                ascending=False).reset_index(drop=True)
                 # 预测验证集
@@ -806,10 +810,168 @@ class AtoA:
                            ascending=False).reset_index(drop=True)
             # 最大最小归一
             mean_imp_df['importance'] = (
-                df_importance['importance'] -
-                df_importance['importance'].min()) / (
-                    df_importance['importance'].max() -
-                    df_importance['importance'].min())
+                                                df_importance['importance'] -
+                                                df_importance['importance'].min()) / (
+                                                df_importance['importance'].max() -
+                                                df_importance['importance'].min())
+            # 获取平均最佳阈值
+            mean_BC = np.array(BC_list).mean()
+
+            return model_list, mean_imp_df, mean_BC
+
+        elif val_type == 'bootstrap':
+            # 获取提升法数据
+            X_train, X_val, y_train, y_val = self._bootstrap(raw_train)
+            # 获取lgb模型
+            xgb_model = self._xgb()
+            # 模型训练，使用早停策略
+            xgb_model.fit(X_train,
+                          y_train,
+                          eval_set=[(X_train, y_train), (X_val, y_val)],
+                          verbose=100,
+                          early_stopping_rounds=50)
+            # 获取模型的特征重要性特征
+            df_importance = pd.DataFrame({
+                'column':
+                    feature_names,
+                'importance':
+                    xgb_model.feature_importances_,
+            }).sort_values(by='importance',
+                           ascending=False).reset_index(drop=True)
+            # 最大最小归一
+            df_importance['importance'] = (
+                                                  df_importance['importance'] -
+                                                  df_importance['importance'].min()) / (
+                                                  df_importance['importance'].max() -
+                                                  df_importance['importance'].min())
+
+            # 模型预测
+            pred_val = xgb_model.predict_proba(X_val)[:, :1]
+            # 搜寻最佳阈值
+            best_thread = self._BC_thread_search(y_val, pred_val)
+
+            return xgb_model, df_importance, best_thread
+
+        else:
+            print("无该验证方法!")
+            exit(-1)
+
+    def _train_lgb(self, raw_train, val_type, k, percent_train=0.8):
+        """ 训练lightgbm模型
+        Args:
+            raw_train(dataframe): 原始数据
+            val_type(string): 验证方式
+            k(int): 交叉折数
+            percent_train(float): 训练集比例
+        Returns:
+            model: 训练模型
+            importance(dataframe): 特征重要度
+            best_thread(float): 最佳阈值
+        """
+        # 获取保留列名
+        feature_names = self._feature_name()
+        if val_type == 'hold-out':  # 留出法
+            X_train, X_val, y_train, y_val = self._hold_out(
+                raw_train, percent_train)
+            # 获取lgb模型
+            lgb_model = self._lgb()
+            # 模型训练，使用早停策略
+            lgb_model.fit(X_train,
+                          y_train,
+                          eval_names=['train', 'valid'],
+                          eval_set=[(X_train, y_train), (X_val, y_val)],
+                          verbose=100,
+                          early_stopping_rounds=50)
+            # 获取特征重要性
+            df_importance = pd.DataFrame({
+                'column':
+                    feature_names,
+                'importance':
+                    lgb_model.feature_importances_,
+            }).sort_values(by='importance',
+                           ascending=False).reset_index(drop=True)
+            # 最大最小归一
+            df_importance['importance'] = (
+                                                  df_importance['importance'] -
+                                                  df_importance['importance'].min()) / (
+                                                  df_importance['importance'].max() -
+                                                  df_importance['importance'].min())
+            # 模型预测
+            pred_val = lgb_model.predict_proba(X_val)[:, 1]
+            X_val['pred_prob'] = pred_val
+            # 搜寻最佳阈值
+            best_thread = self._BC_thread_search(y_val, pred_val)
+            return lgb_model, df_importance, best_thread
+
+        elif val_type == 'k-fold':
+            # 创建模型保存列表
+            model_list = []
+            # 创建阈值保存列表
+            BC_list = []
+            # 创建重要性保存列表
+            importance_list = []
+            # 获取k折数据
+            data_list = self._k_fold(raw_train, k)
+            # 实现可变变量名
+            names = locals()
+            for member, i in zip(data_list, range(k)):
+                X_train, X_val, y_train, y_val = member[0], member[1], member[
+                    2], member[3]
+                # 获取lgb模型并且编号
+                names['lgb_%s' % i] = self._lgb()
+                # 模型训练，使用早停策略
+                names['lgb_%s' % i].fit(X_train,
+                                        y_train,
+                                        eval_names=['train', 'valid'],
+                                        eval_set=[(X_train, y_train),
+                                                  (X_val, y_val)],
+                                        verbose=100,
+                                        early_stopping_rounds=50)
+                # 获取特征重要性
+                df_importance = pd.DataFrame({
+                    'column':
+                        feature_names,
+                    'importance':
+                        names['lgb_%s' % i].feature_importances_,
+                }).sort_values(by='importance',
+                               ascending=False).reset_index(drop=True)
+                # 预测验证集
+                pred_val = names['lgb_%s' % i].predict_proba(X_val)[:, 1]
+                # 获取最佳阈值
+                names['best_thread % s' % i] = self._BC_thread_search(
+                    y_val, pred_val)
+                # 保存k个模型
+                model_list.append(names['lgb_%s' % i])
+                # 保存k个重要性
+                importance_list.append(df_importance)
+                # 保存k个阈值
+                BC_list.append(names['best_thread % s' % i])
+
+            mean_dict = dict()
+            # 获取平均特征重要度
+            for feat in feature_names:
+                mean_dict[feat] = 0
+
+            for df_importance in importance_list:
+                for feat in feature_names:
+                    mean_dict[feat] += int(
+                        df_importance[df_importance['column'] ==
+                                      feat]['importance'].values[0])
+
+            for feat in feature_names:
+                mean_dict[feat] /= k
+            # 重要度排序
+            mean_imp_df = pd.DataFrame({
+                'column': feature_names,
+                'importance': list(mean_dict.values()),
+            }).sort_values(by='importance',
+                           ascending=False).reset_index(drop=True)
+            # 最大最小归一
+            mean_imp_df['importance'] = (
+                                                df_importance['importance'] -
+                                                df_importance['importance'].min()) / (
+                                                df_importance['importance'].max() -
+                                                df_importance['importance'].min())
             # 获取平均最佳阈值
             mean_BC = np.array(BC_list).mean()
 
@@ -830,17 +992,17 @@ class AtoA:
             # 获取模型的特征重要性特征
             df_importance = pd.DataFrame({
                 'column':
-                feature_names,
+                    feature_names,
                 'importance':
-                lgb_model.feature_importances_,
+                    lgb_model.feature_importances_,
             }).sort_values(by='importance',
                            ascending=False).reset_index(drop=True)
             # 最大最小归一
             df_importance['importance'] = (
-                df_importance['importance'] -
-                df_importance['importance'].min()) / (
-                    df_importance['importance'].max() -
-                    df_importance['importance'].min())
+                                                  df_importance['importance'] -
+                                                  df_importance['importance'].min()) / (
+                                                  df_importance['importance'].max() -
+                                                  df_importance['importance'].min())
 
             # 模型预测
             pred_val = lgb_model.predict_proba(X_val)[:, :1]
@@ -1237,6 +1399,11 @@ class AtoA:
             model, df_importance, best_thread = self._train_lgb(
                 train, val_type, k, percent_train=percent_train)
             return model, df_importance, best_thread
+        # xgboost模型
+        if model_type == 'xgb':
+            model, df_importance, best_thread = self._train_xgb(
+                train, val_type, k, percent_train=percent_train)
+            return model, df_importance, best_thread
         # 朴素贝叶斯
         elif model_type == 'nb':
             model, df_importance, best_thread = self._train_nb(
@@ -1289,7 +1456,7 @@ class AtoA:
                 # 保存路径
                 save_path = os.path.join(
                     save_dir, name + str(i) + '_' + val_type + '_' +
-                    str(best_thread) + '.pkl')
+                              str(best_thread) + '.pkl')
                 # 模型保存
                 joblib.dump(model[i], save_path)
         else:
@@ -1547,7 +1714,7 @@ class AtoA:
                   encoding='utf-8') as fr:
             line = '模型{}的'.format(
                 name) + self.mode + ' auc为{:.4f},acc为{:.4f}\n'.format(
-                    dictionary['auc'], dictionary['acc'])
+                dictionary['auc'], dictionary['acc'])
             # 一行数据写入文件
             fr.write(line)
             # 评估报告写入文件
