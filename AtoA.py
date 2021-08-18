@@ -152,11 +152,10 @@ class AtoA:
 
         return data
 
-    # 点1到点2方向沿逆时针方向转到正北方向的夹角, 用于计算我敌连线朝向
-    # 正北方向为0度,逆时针
     @staticmethod
     def _LatLng2Degree(LatZero, LngZero, Lat, Lng):
         """
+        计算我敌连线朝向, 正北方向为0度,逆时针
         Args:
             point p1(latA, lonA)
             point p2(latB, lonB)
@@ -177,27 +176,126 @@ class AtoA:
         return brng
 
     @staticmethod
-    def _get_displacement(row):
-        bullet_speed = 715
-        t = 0.1
-        pitch = row['Pitch']
-        my_speed_y = row['speed_y']
-        my_speed_x = row['speed_x']
-        my_speed_z = row['speed_z']
-        enemy_speed_y = row['enemy_speed_y']
-        enemy_speed_x = row['enemy_speed_x']
-        enemy_speed_z = row['enemy_speed_z']
-        heading = row['Heading']
-        disp_y = (bullet_speed * math.sin(pitch) * my_speed_y / abs(my_speed_y)
-                  + my_speed_y) * t - 4.9 * t**2 - enemy_speed_y * t
-        disp_x = (bullet_speed * math.cos(pitch) * math.cos(180 - heading) *
-                  my_speed_x / abs(my_speed_x) +
-                  my_speed_x) * t - enemy_speed_x * t
-        disp_z = (bullet_speed * math.cos(pitch) * math.sin(180 - heading) *
-                  my_speed_z / abs(my_speed_z) +
-                  my_speed_z) * t - enemy_speed_z * t
+    def _caculate_pure_chase(x, y, z, enemy_x, enemy_y, enemy_z, enemy_speed_x,
+                             enemy_speed_y, enemy_speed_z):
+        """
+        计算纯追逐态势时我机速度与敌机速度夹角
+        Args:
+            x, y, z: 我机坐标
+            enemy_x, enemy_y, enemy_z：敌机坐标
+            enemy_speed_x, enemy_speed_y,  enemy_speed_z：敌机速度
+        Returns:
+            cos_pure:纯追逐态势时我机速度与敌机速度夹角
+        """
+        rela_pos_vec = np.array([enemy_x - x, enemy_y - y, enemy_z - z])
+        enemy_speed_vec = np.array(
+            [enemy_speed_x, enemy_speed_y, enemy_speed_z])
+        cos_pure = rela_pos_vec.dot(enemy_speed_vec) / np.sqrt(
+            rela_pos_vec.dot(rela_pos_vec) *
+            enemy_speed_vec.dot(enemy_speed_vec))
 
-        return abs(disp_x), abs(disp_z), abs(disp_y)
+        return cos_pure
+
+    @staticmethod
+    def _caculate_chase(speed_x, speed_y, speed_z, enemy_speed_x,
+                        enemy_speed_y, enemy_speed_z):
+        """
+        计算我机速度与敌机速度夹角
+        Args:
+            speed_x, speed_y, speed_z: 我机速度
+            enemy_speed_x, enemy_speed_y,  enemy_speed_z：敌机速度
+        Returns:
+            cos_chase:我机速度与敌机速度夹角
+        """
+        my_speed_vec = np.array([speed_x, speed_y, speed_z])
+        enemy_speed_vec = np.array(
+            [enemy_speed_x, enemy_speed_y, enemy_speed_z])
+        cos_chase = my_speed_vec.dot(enemy_speed_vec) / np.sqrt(
+            my_speed_vec.dot(my_speed_vec) *
+            enemy_speed_vec.dot(enemy_speed_vec))
+
+        return cos_chase
+
+    @staticmethod
+    def _caculate_normal_vector(x1, y1, z1, x2, y2, z2, x3, y3, z3):
+        """
+        给定三点求所确定平面的法向量
+        Args:
+            x1,y1,z1：点1坐标
+            x2,y2,z2：点2坐标
+            x3,y3,z3：点3坐标
+        Returns:
+            cos_chase:我机速度与敌机速度夹角
+        """
+        vec_1 = np.array([x2 - x1, y2 - y1, z2 - z1])
+        vec_2 = np.array([x3 - x1, y3 - y1, z3 - z1])
+        vec_n = np.cross(vec_1, vec_2)
+
+        return vec_n
+
+    @staticmethod
+    def _isin_same_plane(my_normal_vec, enemy_normal_vec, cross_normal_vec):
+        """
+        确定是否同一机动平面,取差值
+        Args:
+            my_normal_vec：我机机动平面法向量
+            enemy_normal_vec：敌机机动平面法向量
+            cross_normal_vec：交叉机动平面法向量
+        Returns:
+            cos1:敌我机动平面是否平行
+            cos2:敌我机动平面是否重合
+        """
+        cos1 = my_normal_vec.dot(enemy_normal_vec) / np.sqrt(
+            my_normal_vec.dot(my_normal_vec) *
+            enemy_normal_vec.dot(enemy_normal_vec))
+        cos2 = my_normal_vec.dot(cross_normal_vec) / np.sqrt(
+            my_normal_vec.dot(my_normal_vec) *
+            cross_normal_vec.dot(cross_normal_vec))
+
+        return cos1, cos2
+
+    @staticmethod
+    def _caculate_bullet_arrive_time(pitch, enemy_speed_z, speed_z, enemy_z,
+                                     z):
+        a = -4.9
+        b = 1050 * math.sin(pitch) + speed_z - enemy_speed_z
+        c = z - enemy_z
+        delta = b**2 - 4 * a * c
+        if delta < 0:
+            return -1
+        elif delta == 0:
+            return -b / (2 * a)
+        else:
+            temp_a = (-b + math.sqrt(delta)) / (2 * a)
+            temp_b = (-b - math.sqrt(delta)) / (2 * a)
+            if temp_a == 0 or temp_b == 0:
+                return 0
+            elif temp_a < temp_b < 0:
+                return -temp_b
+            elif temp_a < 0 < temp_b:
+                return temp_b if temp_b < 2 else -temp_a
+            else:
+                return temp_a
+
+    @staticmethod
+    def _caculate_bullet_enemy_distance(bullet_arrive_time, heading, pitch,
+                                        speed_x, speed_y, enemy_speed_x,
+                                        enemy_speed_y, x, y, enemy_x, enemy_y):
+        if bullet_arrive_time == -1:
+            return -1
+        theta = heading + 90
+        sin_theta = math.sin(theta)
+        cos_theta = math.cos(theta)
+        bullet_speed_x = -1050 * math.cos(pitch) * sin_theta
+        bullet_speed_y = 1050 * math.cos(pitch) * cos_theta
+        dist_x = x + (
+            bullet_speed_x + speed_x
+        ) * bullet_arrive_time - enemy_x - enemy_speed_x * bullet_arrive_time
+        dist_y = y + (
+            bullet_speed_y + speed_y
+        ) * bullet_arrive_time - enemy_y - enemy_speed_y * bullet_arrive_time
+        dist = math.sqrt(dist_x**2 + dist_y**2)
+        return dist
 
     def FE_DCS_new(self, data_):
         data = data_.copy()
@@ -292,6 +390,111 @@ class AtoA:
         # 计算攻击角度
         data['my_enemy_angle'] = data.apply(
             lambda x: math.asin(x['relative_z'] / x['distance']), axis=1)
+
+        # 判断是否领先追逐
+        data['pure_chase_cos'] = data.apply(
+            lambda x: self._caculate_pure_chase(
+                x['x'],
+                x['y'],
+                x['z'],
+                x['enemy_x'],
+                x['enemy_y'],
+                x['enemy_z'],
+                x['enemy_speed_x'],
+                x['enemy_speed_y'],
+                x['enemy_speed_z'],
+            ),
+            axis=1)
+
+        data['chase_cos'] = data.apply(lambda x: self._caculate_chase(
+            x['speed_x'],
+            x['speed_y'],
+            x['speed_z'],
+            x['enemy_speed_x'],
+            x['enemy_speed_y'],
+            x['enemy_speed_z'],
+        ),
+                                       axis=1)
+
+        data['lead'] = data['chase_cos'] - data['pure_chase_cos']
+
+        # 计算子弹飞行时间
+        data['bullet_arrive_time'] = data.apply(
+            lambda x: self._caculate_bullet_arrive_time(
+                x['Pitch'], x['enemy_speed_z'], x['speed_z'], x['enemy_z'], x[
+                    'z']),
+            axis=1)
+
+        # 计算子弹与敌机距离
+        data['bullet_enemy_distance'] = data.apply(
+            lambda x: self._caculate_bullet_enemy_distance(
+                x['bullet_arrive_time'], x['Heading'], x['Pitch'],
+                x['speed_x'], x['speed_y'], x['enemy_speed_x'], x[
+                    'enemy_speed_y'], x['x'], x['y'], x['enemy_x'], x['enemy_y'
+                                                                      ]),
+            axis=1)
+        
+        '''
+        # 判断是否同一机动平面
+        pre_data_1 = data.shift(periods=1)  # 上一个时间点的数据
+        pre_data_2 = data.shift(periods=2)  # 上两个时间点的数据
+        pre_data_1.fillna(0, inplace=True)
+        pre_data_2.fillna(0, inplace=True)
+        my_merge_data = pd.DataFrame({
+            'pre2_x': pre_data_2['x'],
+            'pre1_x': pre_data_1['x'],
+            'now_x': data['x'],
+            'pre2_y': pre_data_2['y'],
+            'pre1_y': pre_data_1['y'],
+            'now_y': data['y'],
+            'pre2_z': pre_data_2['z'],
+            'pre1_z': pre_data_1['z'],
+            'now_z': data['z']
+        })
+        enemy_merge_data = pd.DataFrame({
+            'pre2_enemy_x': pre_data_2['enemy_x'],
+            'pre1_enemy_x': pre_data_1['enemy_x'],
+            'now_enemy_x': data['enemy_x'],
+            'pre2_enemy_y': pre_data_2['enemy_y'],
+            'pre1_enemy_y': pre_data_1['enemy_y'],
+            'now_enemy_y': data['enemy_y'],
+            'pre2_enemy_z': pre_data_2['enemy_z'],
+            'pre1_enemy_z': pre_data_1['enemy_z'],
+            'now_enemy_z': data['enemy_z']
+        })
+        all_merge_data = pd.concat([my_merge_data, enemy_merge_data], axis=1)
+
+        data['my_normal_vec'] = my_merge_data.apply(
+            lambda x: self._caculate_normal_vector(x['pre2_x'], x['pre2_y'], x[
+                'pre2_z'], x['pre1_x'], x['pre1_y'], x['pre1_z'], x['now_x'],
+                                                   x['now_y'], x['now_z']),
+            axis=1)
+
+        data['enemy_normal_vec'] = enemy_merge_data.apply(
+            lambda x: self._caculate_normal_vector(x['pre2_enemy_x'], x[
+                'pre2_enemy_y'], x['pre2_enemy_z'], x['pre1_enemy_x'], x[
+                    'pre1_enemy_y'], x['pre1_enemy_z'], x['now_enemy_x'], x[
+                        'now_enemy_y'], x['now_enemy_z']),
+            axis=1)
+
+        data['cross_normal_vec'] = all_merge_data.apply(
+            lambda x: self._caculate_normal_vector(x['pre2_enemy_x'], x[
+                'pre2_enemy_y'], x['pre2_enemy_z'], x['pre1_enemy_x'], x[
+                    'pre1_enemy_y'], x['pre1_enemy_z'], x['now_x'], x['now_y'],
+                                                   x['now_z']),
+            axis=1)
+
+        data[['parallel_cos', 'overlap_cos']] = data.apply(
+            lambda x: self._isin_same_plane(x['my_normal_vec'], x[
+                'enemy_normal_vec'], x['cross_normal_vec']),
+            axis=1,
+            result_type="expand")
+
+        data.drop(
+            columns=['my_normal_vec', 'enemy_normal_vec', 'cross_normal_vec'],
+            inplace=True)
+        '''
+
         # 筛除开火角度过大数据
         data.loc[(data['speed_connect_cos'] < 0) & (data['label'] == 1),
                  'label'] = 0
@@ -400,21 +603,60 @@ class AtoA:
         elif self.type == 'dcs':
             if self.scale == 'all':
                 feature_names = [
-                    'z', 'Roll', 'Pitch', 'Yaw', 'x', 'y', 'Heading',
-                    'enemy_z', 'enemy_x', 'enemy_y', 'speed_x', 'speed_y',
-                    'speed_z', 'speed', 'enemy_speed_x', 'enemy_speed_y',
-                    'enemy_speed_z', 'enemy_speed', 'distance',
-                    'speed_connect_cos', 'connect_direction',
-                    'Heading_connect_cos', 'attack_arrive_time', 'relative_x',
-                    'relative_z', 'relative_y', 'relative_speed_x',
-                    'relative_speed_y', 'relative_speed_z', 'my_enemy_angle'
+                    'z',
+                    'Roll',
+                    'Pitch',
+                    'Yaw',
+                    'x',
+                    'y',
+                    'Heading',
+                    'enemy_z',
+                    'enemy_x',
+                    'enemy_y',
+                    'speed_x',
+                    'speed_y',
+                    'speed_z',
+                    'speed',
+                    'enemy_speed_x',
+                    'enemy_speed_y',
+                    'enemy_speed_z',
+                    'enemy_speed',
+                    'distance',
+                    'speed_connect_cos',
+                    'connect_direction',
+                    'Heading_connect_cos',
+                    'attack_arrive_time',
+                    'relative_x',
+                    'relative_z',
+                    'relative_y',
+                    'relative_speed_x',
+                    'relative_speed_y',
+                    'relative_speed_z',
+                    'my_enemy_angle',
+                    'lead',
+                    'bullet_arrive_time',
+                    'bullet_enemy_distance'
+                    # 'parallel_cos',
+                    # 'overlap_cos'
                 ]
             elif self.scale == 'light':
                 feature_names = [
-                    'z', 'Roll', 'Pitch', 'Yaw', 'y', 'enemy_x', 'distance',
-                    'relative_z', 'relative_y', 'relative_speed_z',
-                    'speed_connect_cos', 'my_enemy_angle',
-                    "Heading_connect_cos"
+                    'z',
+                    'Roll',
+                    'Pitch',
+                    'Yaw',
+                    'y',
+                    'enemy_x',
+                    'distance',
+                    'relative_z',
+                    'relative_y',
+                    'relative_speed_z',
+                    'speed_connect_cos',
+                    'my_enemy_angle',
+                    'Heading_connect_cos',
+                    'lead',
+                    'bullet_arrive_time',
+                    'bullet_enemy_distance'
                 ]
             else:
                 feature_names = [
@@ -541,7 +783,7 @@ class AtoA:
                                        reg_alpha=10,
                                        reg_lambda=12,
                                        random_state=self.seed,
-                                       is_unbalance = True,
+                                       is_unbalance=True,
                                        metric='auc')
         return lgb_model
 
@@ -734,6 +976,7 @@ class AtoA:
                 df_importance['importance'].min()) / (
                     df_importance['importance'].max() -
                     df_importance['importance'].min())
+            print(df_importance)
             # 模型预测
             pred_val = lgb_model.predict_proba(X_val)[:, 1]
             X_val['pred_prob'] = pred_val
