@@ -18,11 +18,11 @@ from sklearn.metrics import (accuracy_score, average_precision_score,
                              precision_recall_curve, roc_auc_score, roc_curve)
 from sklearn.model_selection import GroupKFold
 from sklearn.naive_bayes import GaussianNB
-from tensorflow.keras.layers import LSTM
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.utils import to_categorical
-import tensorflow.keras.callbacks as kcallbacks
+from keras.layers import LSTM
+from keras.layers import Dense
+from keras.models import Sequential
+from keras.utils import to_categorical
+import keras.callbacks as kcallbacks
 from utilClass import RocAucMetricCallback
 from utils import series_to_supervised
 from tqdm import tqdm
@@ -195,7 +195,7 @@ class AtoA:
             connect_vec.dot(connect_vec) * my_speed_vec.dot(my_speed_vec))
 
         return speed_connect_cos
-    
+
     '''
     @staticmethod
     def _chasing_situation_awareness(x, y, z, enemy_x, enemy_y, enemy_z,
@@ -273,7 +273,7 @@ class AtoA:
         cos_pure = rela_pos_vec.dot(enemy_speed_vec) / np.sqrt(
             rela_pos_vec.dot(rela_pos_vec) *
             enemy_speed_vec.dot(enemy_speed_vec))
-        
+
         angle_pure = math.acos(cos_pure)
 
         return angle_pure
@@ -294,7 +294,7 @@ class AtoA:
             [enemy_speed_x, enemy_speed_y, enemy_speed_z])
         cos_chase = my_speed_vec.dot(enemy_speed_vec) / np.sqrt(
             my_speed_vec.dot(my_speed_vec) *
-            enemy_speed_vec.dot(enemy_speed_vec)) 
+            enemy_speed_vec.dot(enemy_speed_vec))
 
         return cos_chase
 
@@ -347,18 +347,23 @@ class AtoA:
         if delta < 0:
             return -1
         elif delta == 0:
-            return -b / (2 * a)
+            return -b / (2 * a) if 0 < -b / (2 * a) < 2 else -1
         else:
             temp_a = (-b + math.sqrt(delta)) / (2 * a)
             temp_b = (-b - math.sqrt(delta)) / (2 * a)
             if temp_a == 0 or temp_b == 0:
                 return 0
             elif temp_a < temp_b < 0:
-                return -temp_b
+                return -temp_b if temp_b >= -1 else -1
             elif temp_a < 0 < temp_b:
-                return temp_b if temp_b < 2 else -temp_a
+                if temp_b < 2:
+                    return temp_b
+                elif temp_a >= -1:
+                    return -temp_a
+                else:
+                    return -1
             else:
-                return temp_a
+                return temp_a if temp_a < 2 else -1
 
     @staticmethod
     def _caculate_bullet_enemy_distance(bullet_arrive_time, heading, pitch,
@@ -472,7 +477,6 @@ class AtoA:
         # 计算攻击角度
         data['my_enemy_angle'] = data.apply(
             lambda x: math.asin(x['relative_z'] / x['distance']), axis=1)
-
         '''
         # 计算领先追逐态势
         data['is_chase'] = data.apply(
@@ -484,18 +488,19 @@ class AtoA:
             axis=1)
         '''
 
-        data['pure_chase_cos'] = data.apply(lambda x: self._caculate_pure_chase(
-            x['x'],
-            x['y'],
-            x['z'],
-            x['enemy_x'],
-            x['enemy_y'],
-            x['enemy_z'],
-            x['enemy_speed_x'],
-            x['enemy_speed_y'],
-            x['enemy_speed_z'],
-        ),
-                                       axis=1)
+        data['pure_chase_cos'] = data.apply(
+            lambda x: self._caculate_pure_chase(
+                x['x'],
+                x['y'],
+                x['z'],
+                x['enemy_x'],
+                x['enemy_y'],
+                x['enemy_z'],
+                x['enemy_speed_x'],
+                x['enemy_speed_y'],
+                x['enemy_speed_z'],
+            ),
+            axis=1)
 
         data['chase_cos'] = data.apply(lambda x: self._caculate_chase(
             x['speed_x'],
@@ -641,23 +646,6 @@ class AtoA:
 
         return train_data, val_data
 
-    @staticmethod
-    def up_sample_data_by_sample(df, percent=10):
-        """ 数据增强
-        上采样代码
-        Args:
-            df(dataframe): 原始数据
-            percent(int): 上采样比例
-        Returns:
-            data(dataframe): 采样后数据
-        """
-        # 多数类别的样本
-        most_data = df[df['label'] == 0]
-        # 少数类别的样本
-        minority_data = df[df['label'] == 1]
-        # 数据拼接返回
-        return pd.concat([most_data] + [minority_data] * percent)
-
     def smote(self, data_):
         data = data_.copy()
         over = SMOTE(sampling_strategy=0.2, random_state=self.seed)
@@ -724,10 +712,10 @@ class AtoA:
                     'relative_speed_y',
                     'relative_speed_z',
                     'my_enemy_angle',
-                    # 'is_chase',
                     'lead',
                     # 'bullet_arrive_time',
                     # 'bullet_enemy_distance'
+                    # 'is_chase',
                     # 'parallel_cos',
                     # 'overlap_cos'
                 ]
@@ -735,9 +723,9 @@ class AtoA:
                 feature_names = [
                     'z', 'Roll', 'Pitch', 'Yaw', 'y', 'enemy_x', 'distance',
                     'relative_z', 'relative_y', 'relative_speed_z',
-                    'speed_connect_cos', 'my_enemy_angle',
-                    'Heading_connect_cos', 'lead', 'bullet_arrive_time',
-                    'bullet_enemy_distance'
+                    'speed_connect_cos', 'my_enemy_angle', 'lead',
+                    # 'bullet_arrive_time', 'bullet_enemy_distance'
+                    # 'Heading_connect_cos'
                 ]
             else:
                 feature_names = [
