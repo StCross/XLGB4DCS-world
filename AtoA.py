@@ -58,7 +58,7 @@ class AtoA:
             # 计算敌机的速度，先用diffh函数得到和上一时刻xyz差值，然后除以时间得到速度
             for f in ['x', 'y', 'z']:
                 data['enemy_v_{}'.format(f)] = data.groupby('id')[
-                                                   'enemy_{}'.format(f)].diff(1) / 0.02
+                    'enemy_{}'.format(f)].diff(1) / 0.02
             # 敌我两机加速度，先用diffh函数得到和上一时刻v_x,v_y,v_z差值，然后除以时间得到加速度
             for f in ['v_x', 'v_y', 'v_z']:
                 data[f'my_{f}_acc'] = data.groupby(
@@ -70,17 +70,17 @@ class AtoA:
                 data[f'{f}_me_minus'] = data[f'my_{f}'] - data[f'enemy_{f}']
 
         # 飞机之间的距离
-        data['distance'] = ((data['my_x'] - data['enemy_x']) ** 2 +
-                            (data['my_y'] - data['enemy_y']) ** 2 +
-                            (data['my_z'] - data['enemy_z']) ** 2) ** 0.5
+        data['distance'] = ((data['my_x'] - data['enemy_x'])**2 +
+                            (data['my_y'] - data['enemy_y'])**2 +
+                            (data['my_z'] - data['enemy_z'])**2)**0.5
 
         # 瞄准夹角
         data['cos'] = ((data['my_v_x'] * (data['enemy_x'] - data['my_x'])) +
                        (data['my_v_y'] * (data['enemy_y'] - data['my_y'])) +
                        (data['my_v_z'] * (data['enemy_z'] - data['my_z'])))
         # 合速度
-        data['speedAll'] = ((data['my_v_x'] ** 2 + data['my_v_y'] ** 2 +
-                             data['my_v_z'] ** 2) ** 0.5)
+        data['speedAll'] = ((data['my_v_x']**2 + data['my_v_y']**2 +
+                             data['my_v_z']**2)**0.5)
         # 夹角cos值
         data['cosValue'] = data['cos'] / (data['speedAll'] * data['distance'])
         # 缺失值补0
@@ -98,17 +98,17 @@ class AtoA:
         # 将字典转为dataframe格式
         data = pd.DataFrame(row_dict, index=[0])
         # 飞机之间的距离
-        data['distance'] = ((data['my_x'] - data['enemy_x']) ** 2 +
-                            (data['my_y'] - data['enemy_y']) ** 2 +
-                            (data['my_z'] - data['enemy_z']) ** 2) ** 0.5
+        data['distance'] = ((data['my_x'] - data['enemy_x'])**2 +
+                            (data['my_y'] - data['enemy_y'])**2 +
+                            (data['my_z'] - data['enemy_z'])**2)**0.5
 
         # 瞄准夹角
         data['cos'] = ((data['my_v_x'] * (data['enemy_x'] - data['my_x'])) +
                        (data['my_v_y'] * (data['enemy_y'] - data['my_y'])) +
                        (data['my_v_z'] * (data['enemy_z'] - data['my_z'])))
         # 合速度
-        data['speedAll'] = ((data['my_v_x'] ** 2 + data['my_v_y'] ** 2 +
-                             data['my_v_z'] ** 2) ** 0.5)
+        data['speedAll'] = ((data['my_v_x']**2 + data['my_v_y']**2 +
+                             data['my_v_z']**2)**0.5)
         # 夹角cos值
         data['cosValue'] = data['cos'] / (data['speedAll'] * data['distance'])
         # 缺失值补0
@@ -130,9 +130,9 @@ class AtoA:
 
         # 飞机之间的距离
         data['distance'] = (
-                                   (data['my_position_x'] - data['enemy_position_x']) ** 2 +
-                                   (data['my_position_y'] - data['enemy_position_y']) ** 2 +
-                                   (data['my_position_z'] - data['enemy_position_z']) ** 2) ** 0.5
+            (data['my_position_x'] - data['enemy_position_x'])**2 +
+            (data['my_position_y'] - data['enemy_position_y'])**2 +
+            (data['my_position_z'] - data['enemy_position_z'])**2)**0.5
         # 向量乘法，向量 a = （x,y,z） b = (x2,y2,z2) c = (x3,y3,z3),a代表我机速度向量
         # b代表位置向量，c代表敌机位置向量，我机中心到敌机中心向量d = c - b
         # d与a之间cos = d×a/(|d|*|a|)
@@ -143,8 +143,8 @@ class AtoA:
                        (data['my_speed_z'] *
                         (data['enemy_position_z'] - data['my_position_z'])))
         # 速度向量
-        data['speedAll'] = ((data['my_speed_x'] ** 2 + data['my_speed_y'] ** 2 +
-                             data['my_speed_z'] ** 2) ** 0.5)
+        data['speedAll'] = ((data['my_speed_x']**2 + data['my_speed_y']**2 +
+                             data['my_speed_z']**2)**0.5)
         # 向量之间夹角
         data['cosValue'] = data['cos'] / (data['speedAll'] * data['distance'])
         # 敌我两机位置交互式差值
@@ -177,6 +177,85 @@ class AtoA:
         return brng
 
     @staticmethod
+    def _caculate_speed_connect_cos(x, y, z, enemy_x, enemy_y, enemy_z,
+                                    speed_x, speed_y, speed_z):
+        """
+        计算我敌连线矢量与我机速度矢量夹角
+        Args:
+            x, y, z: 我机坐标
+            enemy_x, enemy_y, enemy_z：敌机坐标
+            speed_x, speed_y, speed_z: 我机速度
+        Returns:
+            speed_connect_cos:我敌连线矢量与我机速度矢量夹角余弦值
+        """
+        connect_vec = np.array([enemy_x - x, enemy_y - y, enemy_z - z])
+        my_speed_vec = np.array([speed_x, speed_y, speed_z])
+
+        speed_connect_cos = connect_vec.dot(my_speed_vec) / np.sqrt(
+            connect_vec.dot(connect_vec) * my_speed_vec.dot(my_speed_vec))
+
+        return speed_connect_cos
+    
+    '''
+    @staticmethod
+    def _chasing_situation_awareness(x, y, z, enemy_x, enemy_y, enemy_z,
+                                     speed_x, speed_y, speed_z, enemy_speed_x,
+                                     enemy_speed_y, enemy_speed_z,
+                                     speed_connect_cos):
+        """
+        追逐态势感知
+        Args:
+            x, y, z: 我机坐标
+            enemy_x, enemy_y, enemy_z：敌机坐标
+            speed_x, speed_y, speed_z: 我机速度
+            enemy_speed_x, enemy_speed_y,  enemy_speed_z：敌机速度
+            speed_connect_cos: 我敌连线矢量与我机速度矢量夹角余弦值
+        Returns:
+            is_chase:是否在追逐
+        """
+        connect_vec = np.array([enemy_x - x, enemy_y - y, enemy_z - z])
+        my_speed_vec = np.array([speed_x, speed_y, speed_z])
+        enemy_speed_vec = np.array(
+            [enemy_speed_x, enemy_speed_y, enemy_speed_z])
+
+        # 敌我速度夹角,用于判断是否同向
+        my_enemy_speed_cos = my_speed_vec.dot(enemy_speed_vec) / np.sqrt(
+            my_speed_vec.dot(my_speed_vec) *
+            enemy_speed_vec.dot(enemy_speed_vec))
+
+        # 领先追逐时我敌连线矢量与我机速度矢量夹角的上限
+        lead_limit_cos = connect_vec.dot(enemy_speed_vec) / np.sqrt(
+            connect_vec.dot(connect_vec) *
+            enemy_speed_vec.dot(enemy_speed_vec))
+
+
+        lead_limit_angle = math.acos(lead_limit_cos) / math.pi * 180
+
+        # 滞后追逐时我敌连线矢量与我机速度矢量夹角的上限
+        lag_limit_cos = connect_vec.dot(
+            np.negative(enemy_speed_vec)) / np.sqrt(
+                connect_vec.dot(connect_vec) *
+                enemy_speed_vec.dot(enemy_speed_vec))
+
+        lag_limit_angle = math.acos(lag_limit_cos) / math.pi * 180
+
+        # 我敌连线矢量与我机速度矢量夹角
+        speed_connect_angle = math.acos(speed_connect_cos) / math.pi * 180
+
+        if my_enemy_speed_cos >= 0 and speed_connect_angle in [0, lead_limit_angle]:
+            # 领先追逐
+            is_chase = 1
+        elif my_enemy_speed_cos < 0 and speed_connect_angle in [0, lag_limit_angle]:
+            # 滞后追逐
+            is_chase = 1
+        else:
+            # 不在追逐, 可能被追
+            is_chase = -1
+
+        return is_chase
+    '''
+
+    @staticmethod
     def _caculate_pure_chase(x, y, z, enemy_x, enemy_y, enemy_z, enemy_speed_x,
                              enemy_speed_y, enemy_speed_z):
         """
@@ -186,7 +265,7 @@ class AtoA:
             enemy_x, enemy_y, enemy_z：敌机坐标
             enemy_speed_x, enemy_speed_y,  enemy_speed_z：敌机速度
         Returns:
-            cos_pure:纯追逐态势时我机速度与敌机速度夹角
+            angle_pure:纯追逐态势时我机速度与敌机速度夹角
         """
         rela_pos_vec = np.array([enemy_x - x, enemy_y - y, enemy_z - z])
         enemy_speed_vec = np.array(
@@ -194,8 +273,10 @@ class AtoA:
         cos_pure = rela_pos_vec.dot(enemy_speed_vec) / np.sqrt(
             rela_pos_vec.dot(rela_pos_vec) *
             enemy_speed_vec.dot(enemy_speed_vec))
+        
+        angle_pure = math.acos(cos_pure)
 
-        return cos_pure
+        return angle_pure
 
     @staticmethod
     def _caculate_chase(speed_x, speed_y, speed_z, enemy_speed_x,
@@ -213,10 +294,11 @@ class AtoA:
             [enemy_speed_x, enemy_speed_y, enemy_speed_z])
         cos_chase = my_speed_vec.dot(enemy_speed_vec) / np.sqrt(
             my_speed_vec.dot(my_speed_vec) *
-            enemy_speed_vec.dot(enemy_speed_vec))
+            enemy_speed_vec.dot(enemy_speed_vec)) 
 
         return cos_chase
 
+    '''
     @staticmethod
     def _caculate_normal_vector(x1, y1, z1, x2, y2, z2, x3, y3, z3):
         """
@@ -233,7 +315,6 @@ class AtoA:
         vec_n = np.cross(vec_1, vec_2)
 
         return vec_n
-
     @staticmethod
     def _isin_same_plane(my_normal_vec, enemy_normal_vec, cross_normal_vec):
         """
@@ -254,6 +335,7 @@ class AtoA:
             cross_normal_vec.dot(cross_normal_vec))
 
         return cos1, cos2
+    '''
 
     @staticmethod
     def _caculate_bullet_arrive_time(pitch, enemy_speed_z, speed_z, enemy_z,
@@ -310,7 +392,7 @@ class AtoA:
             'enemy_V': 'enemy_y',
             'enemy_Altitude': 'enemy_z',
         },
-            inplace=True)
+                    inplace=True)
 
         # 计算我机速度
         data = pd.concat([
@@ -321,13 +403,13 @@ class AtoA:
                 'speed_z': data.groupby('id')['z'].diff()
             })
         ],
-            sort=False,
-            axis=1)
+                         sort=False,
+                         axis=1)
         data.fillna(0, inplace=True)
         data[['speed_x', 'speed_y',
               'speed_z']] = data[['speed_x', 'speed_y', 'speed_z']] / 0.05
-        data['speed'] = data.apply(lambda x: np.sqrt(x['speed_x'] ** 2 + x[
-            'speed_y'] ** 2 + x['speed_z'] ** 2),
+        data['speed'] = data.apply(lambda x: np.sqrt(x['speed_x']**2 + x[
+            'speed_y']**2 + x['speed_z']**2),
                                    axis=1)
 
         # 计算敌机速度
@@ -339,29 +421,28 @@ class AtoA:
                 'enemy_speed_z': data.groupby('id')['enemy_z'].diff()
             })
         ],
-            sort=False,
-            axis=1)
+                         sort=False,
+                         axis=1)
         data.fillna(0, inplace=True)
         data[[
             'enemy_speed_x', 'enemy_speed_y', 'enemy_speed_z'
         ]] = data[['enemy_speed_x', 'enemy_speed_y', 'enemy_speed_z']] / 0.05
         data['enemy_speed'] = data.apply(
-            lambda x: np.sqrt(x['enemy_speed_x'] ** 2 + x['enemy_speed_y'] ** 2 +
-                              x['enemy_speed_z'] ** 2),
+            lambda x: np.sqrt(x['enemy_speed_x']**2 + x['enemy_speed_y']**2 +
+                              x['enemy_speed_z']**2),
             axis=1)
 
         # 计算敌我距离
         data['distance'] = data.apply(lambda x: np.sqrt(
-            (x['x'] - x['enemy_x']) ** 2 + (x['y'] - x['enemy_y']) ** 2 +
-            (x['z'] - x['enemy_z']) ** 2),
+            (x['x'] - x['enemy_x'])**2 + (x['y'] - x['enemy_y'])**2 +
+            (x['z'] - x['enemy_z'])**2),
                                       axis=1)
 
-        # 计算速度与敌我连线夹角
+        # 计算速度与敌我连线夹角余弦值
         data['speed_connect_cos'] = data.apply(
-            lambda x: (x['speed_x'] * (x['enemy_x'] - x['x']) + x['speed_z'] *
-                       (x['enemy_z'] - x['z']) + x['speed_y'] *
-                       (x['enemy_y'] - x['y'])) / (x['speed'] * x['distance'])
-            if x['speed'] * x['distance'] != 0 else None,
+            lambda x: self._caculate_speed_connect_cos(x['x'], x['y'], x[
+                'z'], x['enemy_x'], x['enemy_y'], x['enemy_z'], x[
+                    'speed_x'], x['speed_y'], x['speed_z']),
             axis=1)
 
         # 计算敌我连线方向
@@ -392,20 +473,29 @@ class AtoA:
         data['my_enemy_angle'] = data.apply(
             lambda x: math.asin(x['relative_z'] / x['distance']), axis=1)
 
-        # 判断是否领先追逐
-        data['pure_chase_cos'] = data.apply(
-            lambda x: self._caculate_pure_chase(
-                x['x'],
-                x['y'],
-                x['z'],
-                x['enemy_x'],
-                x['enemy_y'],
-                x['enemy_z'],
-                x['enemy_speed_x'],
-                x['enemy_speed_y'],
-                x['enemy_speed_z'],
-            ),
+        '''
+        # 计算领先追逐态势
+        data['is_chase'] = data.apply(
+            lambda x: self._chasing_situation_awareness(
+                x['x'], x['y'], x['z'], x['enemy_x'], x['enemy_y'], x[
+                    'enemy_z'], x['speed_x'], x['speed_y'], x['speed_z'],
+                x['enemy_speed_x'], x['enemy_speed_y'], x['enemy_speed_z'], x[
+                    'speed_connect_cos']),
             axis=1)
+        '''
+
+        data['pure_chase_cos'] = data.apply(lambda x: self._caculate_pure_chase(
+            x['x'],
+            x['y'],
+            x['z'],
+            x['enemy_x'],
+            x['enemy_y'],
+            x['enemy_z'],
+            x['enemy_speed_x'],
+            x['enemy_speed_y'],
+            x['enemy_speed_z'],
+        ),
+                                       axis=1)
 
         data['chase_cos'] = data.apply(lambda x: self._caculate_chase(
             x['speed_x'],
@@ -419,6 +509,7 @@ class AtoA:
 
         data['lead'] = data['chase_cos'] - data['pure_chase_cos']
 
+        '''
         # 计算子弹飞行时间
         data['bullet_arrive_time'] = data.apply(
             lambda x: self._caculate_bullet_arrive_time(
@@ -435,7 +526,6 @@ class AtoA:
                                                                       ]),
             axis=1)
         
-        '''
         # 判断是否同一机动平面
         pre_data_1 = data.shift(periods=1)  # 上一个时间点的数据
         pre_data_2 = data.shift(periods=2)  # 上两个时间点的数据
@@ -625,7 +715,7 @@ class AtoA:
                     'distance',
                     'speed_connect_cos',
                     'connect_direction',
-                    'Heading_connect_cos',
+                    # 'Heading_connect_cos',
                     'attack_arrive_time',
                     'relative_x',
                     'relative_z',
@@ -634,29 +724,19 @@ class AtoA:
                     'relative_speed_y',
                     'relative_speed_z',
                     'my_enemy_angle',
+                    # 'is_chase',
                     'lead',
-                    'bullet_arrive_time',
-                    'bullet_enemy_distance'
+                    # 'bullet_arrive_time',
+                    # 'bullet_enemy_distance'
                     # 'parallel_cos',
                     # 'overlap_cos'
                 ]
             elif self.scale == 'light':
                 feature_names = [
-                    'z',
-                    'Roll',
-                    'Pitch',
-                    'Yaw',
-                    'y',
-                    'enemy_x',
-                    'distance',
-                    'relative_z',
-                    'relative_y',
-                    'relative_speed_z',
-                    'speed_connect_cos',
-                    'my_enemy_angle',
-                    'Heading_connect_cos',
-                    'lead',
-                    'bullet_arrive_time',
+                    'z', 'Roll', 'Pitch', 'Yaw', 'y', 'enemy_x', 'distance',
+                    'relative_z', 'relative_y', 'relative_speed_z',
+                    'speed_connect_cos', 'my_enemy_angle',
+                    'Heading_connect_cos', 'lead', 'bullet_arrive_time',
                     'bullet_enemy_distance'
                 ]
             else:
@@ -802,8 +882,7 @@ class AtoA:
                                       reg_alpha=0,
                                       reg_lambda=1,
                                       n_estimators=100000,
-                                      seed=2021
-                                      )
+                                      seed=2021)
         return xgb_model
 
     # 定义svm模型
@@ -970,17 +1049,17 @@ class AtoA:
             # 获取特征重要性
             df_importance = pd.DataFrame({
                 'column':
-                    feature_names,
+                feature_names,
                 'importance':
-                    xgb_model.feature_importances_,
+                xgb_model.feature_importances_,
             }).sort_values(by='importance',
                            ascending=False).reset_index(drop=True)
             # 最大最小归一
             df_importance['importance'] = (
-                                                  df_importance['importance'] -
-                                                  df_importance['importance'].min()) / (
-                                                  df_importance['importance'].max() -
-                                                  df_importance['importance'].min())
+                df_importance['importance'] -
+                df_importance['importance'].min()) / (
+                    df_importance['importance'].max() -
+                    df_importance['importance'].min())
             # 模型预测
             pred_val = xgb_model.predict_proba(X_val)[:, 1]
             X_val['pred_prob'] = pred_val
@@ -1014,9 +1093,9 @@ class AtoA:
                 # 获取特征重要性
                 df_importance = pd.DataFrame({
                     'column':
-                        feature_names,
+                    feature_names,
                     'importance':
-                        names['lgb_%s' % i].feature_importances_,
+                    names['lgb_%s' % i].feature_importances_,
                 }).sort_values(by='importance',
                                ascending=False).reset_index(drop=True)
                 # 预测验证集
@@ -1052,10 +1131,10 @@ class AtoA:
                            ascending=False).reset_index(drop=True)
             # 最大最小归一
             mean_imp_df['importance'] = (
-                                                df_importance['importance'] -
-                                                df_importance['importance'].min()) / (
-                                                df_importance['importance'].max() -
-                                                df_importance['importance'].min())
+                df_importance['importance'] -
+                df_importance['importance'].min()) / (
+                    df_importance['importance'].max() -
+                    df_importance['importance'].min())
             # 获取平均最佳阈值
             mean_BC = np.array(BC_list).mean()
 
@@ -1075,17 +1154,17 @@ class AtoA:
             # 获取模型的特征重要性特征
             df_importance = pd.DataFrame({
                 'column':
-                    feature_names,
+                feature_names,
                 'importance':
-                    xgb_model.feature_importances_,
+                xgb_model.feature_importances_,
             }).sort_values(by='importance',
                            ascending=False).reset_index(drop=True)
             # 最大最小归一
             df_importance['importance'] = (
-                                                  df_importance['importance'] -
-                                                  df_importance['importance'].min()) / (
-                                                  df_importance['importance'].max() -
-                                                  df_importance['importance'].min())
+                df_importance['importance'] -
+                df_importance['importance'].min()) / (
+                    df_importance['importance'].max() -
+                    df_importance['importance'].min())
 
             # 模型预测
             pred_val = xgb_model.predict_proba(X_val)[:, :1]
@@ -1127,9 +1206,9 @@ class AtoA:
             # 获取特征重要性
             df_importance = pd.DataFrame({
                 'column':
-                    feature_names,
+                feature_names,
                 'importance':
-                    lgb_model.feature_importances_,
+                lgb_model.feature_importances_,
             }).sort_values(by='importance',
                            ascending=False).reset_index(drop=True)
             # 最大最小归一
@@ -1173,9 +1252,9 @@ class AtoA:
                 # 获取特征重要性
                 df_importance = pd.DataFrame({
                     'column':
-                        feature_names,
+                    feature_names,
                     'importance':
-                        names['lgb_%s' % i].feature_importances_,
+                    names['lgb_%s' % i].feature_importances_,
                 }).sort_values(by='importance',
                                ascending=False).reset_index(drop=True)
                 # 预测验证集
@@ -1211,10 +1290,10 @@ class AtoA:
                            ascending=False).reset_index(drop=True)
             # 最大最小归一
             mean_imp_df['importance'] = (
-                                                df_importance['importance'] -
-                                                df_importance['importance'].min()) / (
-                                                df_importance['importance'].max() -
-                                                df_importance['importance'].min())
+                df_importance['importance'] -
+                df_importance['importance'].min()) / (
+                    df_importance['importance'].max() -
+                    df_importance['importance'].min())
             # 获取平均最佳阈值
             mean_BC = np.array(BC_list).mean()
 
@@ -1235,17 +1314,17 @@ class AtoA:
             # 获取模型的特征重要性特征
             df_importance = pd.DataFrame({
                 'column':
-                    feature_names,
+                feature_names,
                 'importance':
-                    lgb_model.feature_importances_,
+                lgb_model.feature_importances_,
             }).sort_values(by='importance',
                            ascending=False).reset_index(drop=True)
             # 最大最小归一
             df_importance['importance'] = (
-                                                  df_importance['importance'] -
-                                                  df_importance['importance'].min()) / (
-                                                  df_importance['importance'].max() -
-                                                  df_importance['importance'].min())
+                df_importance['importance'] -
+                df_importance['importance'].min()) / (
+                    df_importance['importance'].max() -
+                    df_importance['importance'].min())
 
             # 模型预测
             pred_val = lgb_model.predict_proba(X_val)[:, :1]
@@ -1699,7 +1778,7 @@ class AtoA:
                 # 保存路径
                 save_path = os.path.join(
                     save_dir, name + str(i) + '_' + val_type + '_' +
-                              str(best_thread) + '.pkl')
+                    str(best_thread) + '.pkl')
                 # 模型保存
                 joblib.dump(model[i], save_path)
         else:
@@ -1957,7 +2036,7 @@ class AtoA:
                   encoding='utf-8') as fr:
             line = '模型{}的'.format(
                 name) + self.mode + ' auc为{:.4f},acc为{:.4f}\n'.format(
-                dictionary['auc'], dictionary['acc'])
+                    dictionary['auc'], dictionary['acc'])
             # 一行数据写入文件
             fr.write(line)
             # 评估报告写入文件
