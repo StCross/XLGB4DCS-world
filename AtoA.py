@@ -43,7 +43,7 @@ class AtoA:
         self.win_df = pd.DataFrame()  # 在线数据读取中始终维持一个长度为最大滑动窗口的dataframe
         self.mode = mode  # 离线或在线
         self.type = type  # df 或者 dcs
-        self.scale = scale  # 是否开启简单模式训练
+        self.scale = scale  # 模型量级
 
     # dogfight特征工程工具函数
     def FE_DF(self, data):
@@ -196,93 +196,56 @@ class AtoA:
 
         return speed_connect_cos
 
+    '''
     @staticmethod
-    def _caculate_speed_connect_LR(x, y, z, enemy_x, enemy_y, enemy_z,
-                                    speed_x, speed_y, speed_z):
+    def _is_lead_chase(x, y, z, enemy_x, enemy_y, enemy_z, speed_x, speed_y,
+                       speed_z, speed_connect_cos, enemy_speed_connect_cos):
         """
-        计算速度矢量指向我敌连线矢量的哪一边
+        判断领先追逐态势
         Args:
             x, y, z: 我机坐标
             enemy_x, enemy_y, enemy_z：敌机坐标
             speed_x, speed_y, speed_z: 我机或敌机速度
+            speed_connect_cos: 我机速度与我敌连线夹角
+            enemy_speed_connect_cos：敌机速度与我敌连线夹角
         Returns:
-            1或-1:连线矢量的指向
+            R+: 领先追逐程度
+            -1: 非领先追逐
         """
-        my_loc_vec = np.array([x, y, z])
-        enemy_loc_vec = np.array([enemy_x, enemy_y, enemy_z])
-        my_pre_loc_vec = np.array([x - 20 * speed_x, y - 20 * speed_y, z - 20 * speed_z])
+        point_1 = np.array([x, y, z])
+        point_2 = np.array([enemy_x, enemy_y, enemy_z])
+        point_3 = np.array(
+            [x + speed_x * 0.05, y + speed_y * 0.05, z + speed_z * 0.05])
 
-        mat = np.vstack([my_loc_vec, enemy_loc_vec, my_pre_loc_vec])
+        mat = np.vstack([point_1, point_2, point_3])
         det = np.linalg.det(mat)
 
-        if det > 0:
-          return 1
+        if det > 0 and speed_connect_cos > enemy_speed_connect_cos:
+            return speed_connect_cos - enemy_speed_connect_cos
         else:
-          return -1
+            return -1
+    '''
 
     @staticmethod
-    def _caculate_pure_chase(x, y, z, enemy_x, enemy_y, enemy_z, enemy_speed_x,
-                             enemy_speed_y, enemy_speed_z):
-        """
-        计算纯追逐态势时我机速度与敌机速度夹角
-        Args:
-            x, y, z: 我机坐标
-            enemy_x, enemy_y, enemy_z：敌机坐标
-            enemy_speed_x, enemy_speed_y,  enemy_speed_z：敌机速度
-        Returns:
-            angle_pure:纯追逐态势时我机速度与敌机速度夹角
-        """
-        rela_pos_vec = np.array([enemy_x - x, enemy_y - y, enemy_z - z])
-        enemy_speed_vec = np.array(
-            [enemy_speed_x, enemy_speed_y, enemy_speed_z])
-        cos_pure = rela_pos_vec.dot(enemy_speed_vec) / np.sqrt(
-            rela_pos_vec.dot(rela_pos_vec) *
-            enemy_speed_vec.dot(enemy_speed_vec))
-
-        angle_pure = math.acos(cos_pure)
-
-        return angle_pure
-
-    @staticmethod
-    def _caculate_chase(speed_x, speed_y, speed_z, enemy_speed_x,
-                        enemy_speed_y, enemy_speed_z):
-        """
-        计算我机速度与敌机速度夹角
-        Args:
-            speed_x, speed_y, speed_z: 我机速度
-            enemy_speed_x, enemy_speed_y,  enemy_speed_z：敌机速度
-        Returns:
-            cos_chase:我机速度与敌机速度夹角
-        """
-        my_speed_vec = np.array([speed_x, speed_y, speed_z])
-        enemy_speed_vec = np.array(
-            [enemy_speed_x, enemy_speed_y, enemy_speed_z])
-        cos_chase = my_speed_vec.dot(enemy_speed_vec) / np.sqrt(
-            my_speed_vec.dot(my_speed_vec) *
-            enemy_speed_vec.dot(enemy_speed_vec))
-
-        return cos_chase
-
-    @staticmethod
-    def _caculate_HCA(speed_x, speed_y, speed_z, enemy_speed_x, enemy_speed_y,
-                      enemy_speed_z):
+    def _caculate_speed_cos(speed_x, speed_y, speed_z, enemy_speed_x,
+                            enemy_speed_y, enemy_speed_z):
         """
         计算我机速度矢量与敌机速度矢量夹角
         Args:
             speed_x, speed_y, speed_z：我机速度
             enemy_speed_x, enemy_speed_y, enemy_speed_z: 敌机速度
         Returns:
-            HCA_cos:敌机速度与我机速度矢量夹角余弦值
+            speed_cos:敌机速度与我机速度矢量夹角余弦值
         """
         my_speed_vec = np.array([speed_x, speed_y, speed_z])
         enemy_speed_vec = np.array(
             [enemy_speed_x, enemy_speed_y, enemy_speed_z])
 
-        HCA_cos = my_speed_vec.dot(enemy_speed_vec) / np.sqrt(
+        speed_cos = my_speed_vec.dot(enemy_speed_vec) / np.sqrt(
             my_speed_vec.dot(my_speed_vec) *
             enemy_speed_vec.dot(enemy_speed_vec))
 
-        return HCA_cos
+        return speed_cos
 
     def FE_DCS_new(self, data_):
         data = data_.copy()
@@ -297,138 +260,178 @@ class AtoA:
             'enemy_Altitude': 'enemy_z',
         },
                     inplace=True)
-
-        # 计算我机速度
-        data = pd.concat([
-            data,
-            pd.DataFrame({
-                'speed_x': data.groupby('id')['x'].diff(),
-                'speed_y': data.groupby('id')['y'].diff(),
-                'speed_z': data.groupby('id')['z'].diff()
-            })
-        ],
-                         sort=False,
-                         axis=1)
-        data.fillna(0, inplace=True)
-        data[['speed_x', 'speed_y',
-              'speed_z']] = data[['speed_x', 'speed_y', 'speed_z']] / 0.05
-        data['speed'] = data.apply(lambda x: np.sqrt(x['speed_x']**2 + x[
-            'speed_y']**2 + x['speed_z']**2),
-                                   axis=1)
-
-        # 计算敌机速度
-        data = pd.concat([
-            data,
-            pd.DataFrame({
-                'enemy_speed_x': data.groupby('id')['enemy_x'].diff(),
-                'enemy_speed_y': data.groupby('id')['enemy_y'].diff(),
-                'enemy_speed_z': data.groupby('id')['enemy_z'].diff()
-            })
-        ],
-                         sort=False,
-                         axis=1)
-        data.fillna(0, inplace=True)
-        data[[
-            'enemy_speed_x', 'enemy_speed_y', 'enemy_speed_z'
-        ]] = data[['enemy_speed_x', 'enemy_speed_y', 'enemy_speed_z']] / 0.05
-        data['enemy_speed'] = data.apply(
-            lambda x: np.sqrt(x['enemy_speed_x']**2 + x['enemy_speed_y']**2 +
-                              x['enemy_speed_z']**2),
-            axis=1)
-
-        # 计算敌我距离
-        data['distance'] = data.apply(lambda x: np.sqrt(
-            (x['x'] - x['enemy_x'])**2 + (x['y'] - x['enemy_y'])**2 +
-            (x['z'] - x['enemy_z'])**2),
-                                      axis=1)
-
-        # 计算我机速度与敌我连线夹角余弦值
-        data['speed_connect_cos'] = data.apply(
-            lambda x: self._caculate_speed_connect_cos(x['x'], x['y'], x[
-                'z'], x['enemy_x'], x['enemy_y'], x['enemy_z'], x[
-                    'speed_x'], x['speed_y'], x['speed_z']),
-            axis=1)
-
-        # 计算我机速度与敌我连线夹角指向关系
-        data['speed_connect_LR'] = data.apply(
-            lambda x: self._caculate_speed_connect_LR(x['x'], x['y'], x[
-                'z'], x['enemy_x'], x['enemy_y'], x['enemy_z'], x[
-                    'speed_x'], x['speed_y'], x['speed_z']),
-            axis=1)
-
-        # 计算敌机速度与敌我连线夹角余弦值
-        data['enemy_speed_connect_cos'] = data.apply(
-            lambda x: self._caculate_speed_connect_cos(x['x'], x['y'], x[
-                'z'], x['enemy_x'], x['enemy_y'], x['enemy_z'], x[
-                    'enemy_speed_x'], x['enemy_speed_y'], x['enemy_speed_z']),
-            axis=1)
-
-        # 计算敌机速度与敌我连线夹角指向关系
-        data['enemy_speed_connect_LR'] = data.apply(
-            lambda x: self._caculate_speed_connect_LR(x['x'], x['y'], x[
-                'z'], x['enemy_x'], x['enemy_y'], x['enemy_z'], x[
-                    'enemy_speed_x'], x['enemy_speed_y'], x['enemy_speed_z']),
-            axis=1)
-
-        # 计算敌我连线方向
-        data['connect_direction'] = data.apply(
-            lambda x: self._LatLng2Degree(x['Latitude'], x['Longitude'], x[
-                'enemy_Latitude'], x['enemy_Longitude']),
-            axis=1)
-
-        # 我机朝向处理
-        data['Heading'] = data['Heading'] % 360
-
-        # 计算攻击到达时间
-        data['attack_arrive_time'] = data.apply(
-            lambda x: x['distance'] / (x['speed'] * x['speed_connect_cos']),
-            axis=1)
-
-        # 计算相对位置与速度
-        for f in ['x', 'y', 'z', 'speed_x', 'speed_y', 'speed_z']:
-            data[f'relative_{f}'] = data[f'{f}'] - data[f'enemy_{f}']
-
-        # 计算领先追逐程度
-        data['pure_chase_cos'] = data.apply(
-            lambda x: self._caculate_pure_chase(
-                x['x'],
-                x['y'],
-                x['z'],
-                x['enemy_x'],
-                x['enemy_y'],
-                x['enemy_z'],
-                x['enemy_speed_x'],
-                x['enemy_speed_y'],
-                x['enemy_speed_z'],
-            ),
-            axis=1)
-
-        data['chase_cos'] = data.apply(lambda x: self._caculate_chase(
-            x['speed_x'],
-            x['speed_y'],
-            x['speed_z'],
-            x['enemy_speed_x'],
-            x['enemy_speed_y'],
-            x['enemy_speed_z'],
-        ),
+        if self.scale == 'all':
+            # 计算我机速度
+            data = pd.concat([
+                data,
+                pd.DataFrame({
+                    'speed_x': data.groupby('id')['x'].diff(),
+                    'speed_y': data.groupby('id')['y'].diff(),
+                    'speed_z': data.groupby('id')['z'].diff()
+                })
+            ],
+                             sort=False,
+                             axis=1)
+            data.fillna(0, inplace=True)
+            data[['speed_x', 'speed_y',
+                  'speed_z']] = data[['speed_x', 'speed_y', 'speed_z']] / 0.05
+            data['speed'] = data.apply(lambda x: np.sqrt(x['speed_x']**2 + x[
+                'speed_y']**2 + x['speed_z']**2),
                                        axis=1)
+            data['square_speed'] = data['speed']**2
 
-        data['lead'] = data['chase_cos'] - data['pure_chase_cos']
+            # 计算敌机速度
+            data = pd.concat([
+                data,
+                pd.DataFrame(
+                    {
+                        'enemy_speed_x': data.groupby('id')['enemy_x'].diff(),
+                        'enemy_speed_y': data.groupby('id')['enemy_y'].diff(),
+                        'enemy_speed_z': data.groupby('id')['enemy_z'].diff()
+                    })
+            ],
+                             sort=False,
+                             axis=1)
+            data.fillna(0, inplace=True)
+            data[[
+                'enemy_speed_x', 'enemy_speed_y', 'enemy_speed_z'
+            ]] = data[['enemy_speed_x', 'enemy_speed_y', 'enemy_speed_z'
+                       ]] / 0.05
+            data['enemy_speed'] = data.apply(
+                lambda x: np.sqrt(x['enemy_speed_x']**2 + x['enemy_speed_y']**2
+                                  + x['enemy_speed_z']**2),
+                axis=1)
+            data['enemy_square_speed'] = data['enemy_speed']**2
 
-        # 计算HCA
-        data['HCA'] = data.apply(lambda x: self._caculate_HCA(
-            x['speed_x'], x['speed_y'], x['speed_z'], x['enemy_speed_x'], x[
-                'enemy_speed_y'], x['enemy_speed_z']),
-                                 axis=1)
+            data['relative_square_speed'] = data['enemy_square_speed'] - data[
+                'square_speed']
+            # 计算敌我距离
+            data['distance'] = data.apply(lambda x: np.sqrt(
+                (x['x'] - x['enemy_x'])**2 + (x['y'] - x['enemy_y'])**2 +
+                (x['z'] - x['enemy_z'])**2),
+                                          axis=1)
 
-        # 筛除开火角度过大数据
-        data.loc[(data['speed_connect_cos'] < 0) & (data['label'] == 1),
-                 'label'] = 0
+            # 计算我机速度与敌我连线夹角余弦值
+            data['speed_connect_cos'] = data.apply(
+                lambda x: self._caculate_speed_connect_cos(
+                    x['x'], x['y'], x['z'], x['enemy_x'], x['enemy_y'], x[
+                        'enemy_z'], x['speed_x'], x['speed_y'], x['speed_z']),
+                axis=1)
 
-        data.fillna(0, inplace=True)
-        data.dropna(inplace=True)
-        data.to_csv('a2a_fe.csv', index=False)
-        return data
+            # 计算敌机速度与敌我连线夹角余弦值
+            data['enemy_speed_connect_cos'] = data.apply(
+                lambda x: self._caculate_speed_connect_cos(
+                    x['x'], x['y'], x['z'], x['enemy_x'], x['enemy_y'], x[
+                        'enemy_z'], x['enemy_speed_x'], x['enemy_speed_y'], x[
+                            'enemy_speed_z']),
+                axis=1)
+
+            # 计算两机速度夹角余弦值
+            data['speed_cos'] = data.apply(lambda x: self._caculate_speed_cos(
+                x['speed_x'], x['speed_y'], x['speed_z'], x['enemy_speed_x'],
+                x['enemy_speed_y'], x['enemy_speed_z']),
+                                           axis=1)
+
+            # 我机朝向处理
+            data['Heading'] = data['Heading'] % 360
+
+            # 计算相对位置与速度
+            for f in ['x', 'y', 'z', 'speed_x', 'speed_y', 'speed_z', 'speed']:
+                data[f'relative_{f}'] = data[f'enemy_{f}'] - data[f'{f}']
+
+            # 筛除开火角度过大数据
+            data.loc[(data['speed_connect_cos'] < 0) & (data['label'] == 1),
+                     'label'] = 0
+
+            data.fillna(0, inplace=True)
+            data.dropna(inplace=True)
+            data.to_csv('a2a_fe.csv', index=False)
+            return data
+
+        elif self.scale == 'light':
+            # 计算我机速度
+            data = pd.concat([
+                data,
+                pd.DataFrame({
+                    'speed_x': data.groupby('id')['x'].diff(),
+                    'speed_y': data.groupby('id')['y'].diff(),
+                    'speed_z': data.groupby('id')['z'].diff()
+                })
+            ],
+                             sort=False,
+                             axis=1)
+            data.fillna(0, inplace=True)
+            data[['speed_x', 'speed_y',
+                  'speed_z']] = data[['speed_x', 'speed_y', 'speed_z']] / 0.05
+            data['speed'] = data.apply(lambda x: np.sqrt(x['speed_x']**2 + x[
+                'speed_y']**2 + x['speed_z']**2),
+                                       axis=1)
+            data['square_speed'] = data['speed']**2
+
+            # 计算敌机速度
+            data = pd.concat([
+                data,
+                pd.DataFrame(
+                    {
+                        'enemy_speed_x': data.groupby('id')['enemy_x'].diff(),
+                        'enemy_speed_y': data.groupby('id')['enemy_y'].diff(),
+                        'enemy_speed_z': data.groupby('id')['enemy_z'].diff()
+                    })
+            ],
+                             sort=False,
+                             axis=1)
+            data.fillna(0, inplace=True)
+            data[[
+                'enemy_speed_x', 'enemy_speed_y', 'enemy_speed_z'
+            ]] = data[['enemy_speed_x', 'enemy_speed_y', 'enemy_speed_z'
+                       ]] / 0.05
+            data['enemy_speed'] = data.apply(
+                lambda x: np.sqrt(x['enemy_speed_x']**2 + x['enemy_speed_y']**2
+                                  + x['enemy_speed_z']**2),
+                axis=1)
+            data['enemy_square_speed'] = data['enemy_speed']**2
+
+            data['relative_square_speed'] = data['enemy_square_speed'] - data[
+                'square_speed']
+            # 计算敌我距离
+            data['distance'] = data.apply(lambda x: np.sqrt(
+                (x['x'] - x['enemy_x'])**2 + (x['y'] - x['enemy_y'])**2 +
+                (x['z'] - x['enemy_z'])**2),
+                                          axis=1)
+
+            # 计算我机速度与敌我连线夹角余弦值
+            data['speed_connect_cos'] = data.apply(
+                lambda x: self._caculate_speed_connect_cos(
+                    x['x'], x['y'], x['z'], x['enemy_x'], x['enemy_y'], x[
+                        'enemy_z'], x['speed_x'], x['speed_y'], x['speed_z']),
+                axis=1)
+
+            # 计算敌机速度与敌我连线夹角余弦值
+            data['enemy_speed_connect_cos'] = data.apply(
+                lambda x: self._caculate_speed_connect_cos(
+                    x['x'], x['y'], x['z'], x['enemy_x'], x['enemy_y'], x[
+                        'enemy_z'], x['enemy_speed_x'], x['enemy_speed_y'], x[
+                            'enemy_speed_z']),
+                axis=1)
+
+            # 计算两机速度夹角余弦
+            data['speed_cos'] = data.apply(lambda x: self._caculate_speed_cos(
+                x['speed_x'], x['speed_y'], x['speed_z'], x['enemy_speed_x'],
+                x['enemy_speed_y'], x['enemy_speed_z']),
+                                           axis=1)
+
+            # 计算相对位置
+            for f in ['z', 'square_speed']:
+                data[f'relative_{f}'] = data[f'enemy_{f}'] - data[f'{f}']
+            
+            # 筛除开火角度过大数据
+            data.loc[(data['speed_connect_cos'] < 0) & (data['label'] == 1),
+                     'label'] = 0
+
+            data.fillna(0, inplace=True)
+            data.dropna(inplace=True)
+            data.to_csv('a2a_fe.csv', index=False)
+            return data
 
     # DCS在线特征工程
     def online_FE_DCS(self, row_dict):
@@ -514,20 +517,18 @@ class AtoA:
                 feature_names = [
                     'z', 'Roll', 'Pitch', 'Yaw', 'x', 'y', 'Heading',
                     'enemy_z', 'enemy_x', 'enemy_y', 'speed_x', 'speed_y',
-                    'speed_z', 'speed', 'enemy_speed_x', 'enemy_speed_y',
-                    'enemy_speed_z', 'enemy_speed', 'distance',
-                    'speed_connect_cos', 'speed_connect_LR',
-                    'enemy_speed_connect_cos', 'enemy_speed_connect_LR',
-                    'connect_direction', 'attack_arrive_time', 'relative_x',
-                    'relative_z', 'relative_y', 'relative_speed_x',
-                    'relative_speed_y', 'relative_speed_z',
-                    'lead', 'HCA'
+                    'speed_z', 'enemy_speed_x', 'enemy_speed_y',
+                    'enemy_speed_z', 'distance', 'square_speed',
+                    'speed_connect_cos', 'enemy_speed_connect_cos',
+                    'relative_x', 'relative_z', 'relative_y',
+                    'relative_speed_x', 'relative_speed_y', 'relative_speed_z',
+                    'relative_square_speed', 'speed_cos'
                 ]
             elif self.scale == 'light':
                 feature_names = [
-                    'z', 'Roll', 'Pitch', 'Yaw', 'y', 'enemy_x', 'distance',
-                    'relative_z', 'relative_y', 'relative_speed_z',
-                    'speed_connect_cos', 'my_enemy_angle', 'lead', 'HCA'
+                    'z', 'distance', 'square_speed', 'speed_connect_cos',
+                    'enemy_speed_connect_cos', 'relative_z',
+                    'relative_square_speed', 'speed_cos'
                 ]
             else:
                 feature_names = [
@@ -550,11 +551,10 @@ class AtoA:
         # 获取保留的列名
         feature_names = self._feature_name()
         if self.type == 'dcs':
-            raw_train = self.smote(raw_train)
+            train_data = self.smote(raw_train)
         # 切分训练集、验证集
         train_data, val_data = self.train_val_split(raw_train,
                                                     percent=percent_train)
-
         # 获取训练验证数据和标签数据
         X_train, X_val, y_train, y_val = train_data[feature_names], val_data[
             feature_names], train_data['label'], val_data['label']
