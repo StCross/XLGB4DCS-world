@@ -278,7 +278,6 @@ class AtoA:
             data['speed'] = data.apply(lambda x: np.sqrt(x['speed_x']**2 + x[
                 'speed_y']**2 + x['speed_z']**2),
                                        axis=1)
-            data['square_speed'] = data['speed']**2
 
             # 计算敌机速度
             data = pd.concat([
@@ -301,10 +300,7 @@ class AtoA:
                 lambda x: np.sqrt(x['enemy_speed_x']**2 + x['enemy_speed_y']**2
                                   + x['enemy_speed_z']**2),
                 axis=1)
-            data['enemy_square_speed'] = data['enemy_speed']**2
 
-            data['relative_square_speed'] = data['enemy_square_speed'] - data[
-                'square_speed']
             # 计算敌我距离
             data['distance'] = data.apply(lambda x: np.sqrt(
                 (x['x'] - x['enemy_x'])**2 + (x['y'] - x['enemy_y'])**2 +
@@ -366,7 +362,6 @@ class AtoA:
             data['speed'] = data.apply(lambda x: np.sqrt(x['speed_x']**2 + x[
                 'speed_y']**2 + x['speed_z']**2),
                                        axis=1)
-            data['square_speed'] = data['speed']**2
 
             # 计算敌机速度
             data = pd.concat([
@@ -389,10 +384,7 @@ class AtoA:
                 lambda x: np.sqrt(x['enemy_speed_x']**2 + x['enemy_speed_y']**2
                                   + x['enemy_speed_z']**2),
                 axis=1)
-            data['enemy_square_speed'] = data['enemy_speed']**2
 
-            data['relative_square_speed'] = data['enemy_square_speed'] - data[
-                'square_speed']
             # 计算敌我距离
             data['distance'] = data.apply(lambda x: np.sqrt(
                 (x['x'] - x['enemy_x'])**2 + (x['y'] - x['enemy_y'])**2 +
@@ -421,7 +413,7 @@ class AtoA:
                                            axis=1)
 
             # 计算相对位置
-            for f in ['z', 'square_speed']:
+            for f in ['z', 'speed']:
                 data[f'relative_{f}'] = data[f'enemy_{f}'] - data[f'{f}']
             
             # 筛除开火角度过大数据
@@ -518,17 +510,17 @@ class AtoA:
                     'z', 'Roll', 'Pitch', 'Yaw', 'x', 'y', 'Heading',
                     'enemy_z', 'enemy_x', 'enemy_y', 'speed_x', 'speed_y',
                     'speed_z', 'enemy_speed_x', 'enemy_speed_y',
-                    'enemy_speed_z', 'distance', 'square_speed',
+                    'enemy_speed_z', 'distance', 'speed',
                     'speed_connect_cos', 'enemy_speed_connect_cos',
                     'relative_x', 'relative_z', 'relative_y',
                     'relative_speed_x', 'relative_speed_y', 'relative_speed_z',
-                    'relative_square_speed', 'speed_cos'
+                    'relative_speed', 'speed_cos'
                 ]
             elif self.scale == 'light':
                 feature_names = [
-                    'z', 'distance', 'square_speed', 'speed_connect_cos',
+                    'z', 'distance', 'speed', 'speed_connect_cos',
                     'enemy_speed_connect_cos', 'relative_z',
-                    'relative_square_speed', 'speed_cos'
+                    'relative_speed', 'speed_cos'
                 ]
             else:
                 feature_names = [
