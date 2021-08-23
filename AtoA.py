@@ -550,11 +550,11 @@ class AtoA:
         """
         # 获取保留的列名
         feature_names = self._feature_name()
-        if self.type == 'dcs':
-            train_data = self.smote(raw_train)
         # 切分训练集、验证集
         train_data, val_data = self.train_val_split(raw_train,
                                                     percent=percent_train)
+        if self.type == 'dcs':
+            train_data = self.smote(train_data)
         # 获取训练验证数据和标签数据
         X_train, X_val, y_train, y_val = train_data[feature_names], val_data[
             feature_names], train_data['label'], val_data['label']
