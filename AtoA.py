@@ -209,8 +209,9 @@ class AtoA:
             speed_connect_cos: 我机速度与我敌连线夹角
             enemy_speed_connect_cos：敌机速度与我敌连线夹角
         Returns:
-            1: 领先追逐
-            -1: 非领先追逐
+            R+: 领先追逐
+            R-: 滞后追逐
+            -1000:非追逐
         """
         point_1 = np.array([x, y, z])
         point_2 = np.array([enemy_x, enemy_y, enemy_z])
@@ -226,10 +227,15 @@ class AtoA:
         enemy_mat = np.vstack([point_1, point_2, point_4])
         enemy_det = np.linalg.det(enemy_mat)
 
-        if det * enemy_det > 0 and speed_connect_cos > enemy_speed_connect_cos:
-            return 1
+        if det * enemy_det >= 0 and speed_connect_cos >= enemy_speed_connect_cos:
+            # 领先追逐或纯追逐
+            return speed_connect_cos - enemy_speed_connect_cos
+        elif det * enemy_det < 0 and speed_connect_cos > enemy_speed_connect_cos:
+            # 滞后追逐
+            return enemy_speed_connect_cos - speed_connect_cos
         else:
-            return -1
+            # 非追逐
+            return -1000
 
     @staticmethod
     def _caculate_speed_cos(speed_x, speed_y, speed_z, enemy_speed_x,
@@ -348,11 +354,10 @@ class AtoA:
                                                axis=1)
 
             # 筛除不能开火标签(非领先追逐且两机距离大于500)
-            '''
-            data['label'] = data.apply(lambda x: 0 if x['is_lead_chase'] == -1
-                                       or x['distance'] > 500 else x['label'],
+            data['label'] = data.apply(lambda x: 0
+                                       if x['speed_connect_cos'] < 0 or x[
+                                           'distance'] > 500 else x['label'],
                                        axis=1)
-            '''
             data.fillna(0, inplace=True)
             data.dropna(inplace=True)
             data.to_csv('a2a_fe.csv', index=False)
@@ -438,12 +443,11 @@ class AtoA:
                     'speed_connect_cos'], x['enemy_speed_connect_cos']),
                                                axis=1)
 
-            # 筛除不能开火标签(非领先追逐且两机距离大于500)
-            '''
-            data['label'] = data.apply(lambda x: 0 if x['is_lead_chase'] == -1
-                                       or x['distance'] > 500 else x['label'],
+            # 筛除不能开火标签(两机距离大于1000或背对)
+            data['label'] = data.apply(lambda x: 0
+                                       if x['speed_connect_cos'] < 0 or x[
+                                           'distance'] > 1000 else x['label'],
                                        axis=1)
-            '''
 
             data.fillna(0, inplace=True)
             data.dropna(inplace=True)
@@ -538,8 +542,7 @@ class AtoA:
                     'enemy_speed_z', 'distance', 'speed', 'speed_connect_cos',
                     'enemy_speed_connect_cos', 'relative_x', 'relative_z',
                     'relative_y', 'relative_speed_x', 'relative_speed_y',
-                    'relative_speed_z', 'relative_speed', 'speed_cos',
-                    'is_lead_chase'
+                    'relative_speed_z', 'relative_speed', 'speed_cos'
                 ]
             elif self.scale == 'light':
                 feature_names = [
