@@ -196,7 +196,6 @@ class AtoA:
 
         return speed_connect_cos
 
-    '''
     @staticmethod
     def _is_lead_chase(x, y, z, enemy_x, enemy_y, enemy_z, speed_x, speed_y,
                        speed_z, speed_connect_cos, enemy_speed_connect_cos):
@@ -209,7 +208,7 @@ class AtoA:
             speed_connect_cos: 我机速度与我敌连线夹角
             enemy_speed_connect_cos：敌机速度与我敌连线夹角
         Returns:
-            R+: 领先追逐程度
+            1: 领先追逐
             -1: 非领先追逐
         """
         point_1 = np.array([x, y, z])
@@ -221,10 +220,9 @@ class AtoA:
         det = np.linalg.det(mat)
 
         if det > 0 and speed_connect_cos > enemy_speed_connect_cos:
-            return speed_connect_cos - enemy_speed_connect_cos
+            return 1
         else:
             return -1
-    '''
 
     @staticmethod
     def _caculate_speed_cos(speed_x, speed_y, speed_z, enemy_speed_x,
@@ -335,8 +333,14 @@ class AtoA:
             for f in ['x', 'y', 'z', 'speed_x', 'speed_y', 'speed_z', 'speed']:
                 data[f'relative_{f}'] = data[f'enemy_{f}'] - data[f'{f}']
 
-            # 筛除开火角度过大数据
-            data.loc[(data['speed_connect_cos'] < 0) & (data['label'] == 1),
+            # 计算是否领先追逐
+            data['is_lead_chase'] = data.apply(lambda x: self._is_lead_chase(
+                x['x'], x['y'], x['z'], x['enemy_x'], x['enemy_y'], x[
+                    'enemy_z'], x['speed_x'], x['speed_y'], x['speed_z'], x[
+                        'speed_connect_cos'], x['enemy_speed_connect_cos']),
+                                               axis=1)
+            # 筛除非领先追逐数据
+            data.loc[(data['is_lead_chase'] == -1) & (data['label'] == 1),
                      'label'] = 0
 
             data.fillna(0, inplace=True)
@@ -415,10 +419,17 @@ class AtoA:
             # 计算相对位置
             for f in ['z', 'speed']:
                 data[f'relative_{f}'] = data[f'enemy_{f}'] - data[f'{f}']
-            
-            # 筛除开火角度过大数据
-            data.loc[(data['speed_connect_cos'] < 0) & (data['label'] == 1),
-                     'label'] = 0
+
+            # 计算是否领先追逐
+            data['is_lead_chase'] = data.apply(lambda x: self._is_lead_chase(
+                x['x'], x['y'], x['z'], x['enemy_x'], x['enemy_y'], x[
+                    'enemy_z'], x['speed_x'], x['speed_y'], x['speed_z'], x[
+                        'speed_connect_cos'], x['enemy_speed_connect_cos']),
+                                               axis=1)
+            # 筛除不能开火标签
+            data['label'] = data.apply(lambda x: 0 if x['is_lead_chase'] == -1
+                                       or x['distance'] > 500 else x['label'],
+                                       axis=1)
 
             data.fillna(0, inplace=True)
             data.dropna(inplace=True)
@@ -510,17 +521,17 @@ class AtoA:
                     'z', 'Roll', 'Pitch', 'Yaw', 'x', 'y', 'Heading',
                     'enemy_z', 'enemy_x', 'enemy_y', 'speed_x', 'speed_y',
                     'speed_z', 'enemy_speed_x', 'enemy_speed_y',
-                    'enemy_speed_z', 'distance', 'speed',
-                    'speed_connect_cos', 'enemy_speed_connect_cos',
-                    'relative_x', 'relative_z', 'relative_y',
-                    'relative_speed_x', 'relative_speed_y', 'relative_speed_z',
-                    'relative_speed', 'speed_cos'
+                    'enemy_speed_z', 'distance', 'speed', 'speed_connect_cos',
+                    'enemy_speed_connect_cos', 'relative_x', 'relative_z',
+                    'relative_y', 'relative_speed_x', 'relative_speed_y',
+                    'relative_speed_z', 'relative_speed', 'speed_cos',
+                    'is_lead_chase'
                 ]
             elif self.scale == 'light':
                 feature_names = [
                     'z', 'distance', 'speed', 'speed_connect_cos',
-                    'enemy_speed_connect_cos', 'relative_z',
-                    'relative_speed', 'speed_cos'
+                    'enemy_speed_connect_cos', 'relative_z', 'relative_speed',
+                    'speed_cos', 'is_lead_chase'
                 ]
             else:
                 feature_names = [
