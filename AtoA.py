@@ -198,7 +198,8 @@ class AtoA:
 
     @staticmethod
     def _is_lead_chase(x, y, z, enemy_x, enemy_y, enemy_z, speed_x, speed_y,
-                       speed_z, speed_connect_cos, enemy_speed_connect_cos):
+                       speed_z, enemy_speed_x, enemy_speed_y, enemy_speed_z,
+                       speed_connect_cos, enemy_speed_connect_cos):
         """
         判断领先追逐态势
         Args:
@@ -215,11 +216,17 @@ class AtoA:
         point_2 = np.array([enemy_x, enemy_y, enemy_z])
         point_3 = np.array(
             [x + speed_x * 0.05, y + speed_y * 0.05, z + speed_z * 0.05])
-
+        point_4 = np.array([
+            enemy_x + enemy_speed_x * 0.05, enemy_y + enemy_speed_y * 0.05,
+            enemy_z + enemy_speed_z * 0.05
+        ])
         mat = np.vstack([point_1, point_2, point_3])
         det = np.linalg.det(mat)
 
-        if det > 0 and speed_connect_cos > enemy_speed_connect_cos:
+        enemy_mat = np.vstack([point_1, point_2, point_4])
+        enemy_det = np.linalg.det(enemy_mat)
+
+        if det * enemy_det > 0 and speed_connect_cos > enemy_speed_connect_cos:
             return 1
         else:
             return -1
@@ -339,10 +346,13 @@ class AtoA:
                     'enemy_z'], x['speed_x'], x['speed_y'], x['speed_z'], x[
                         'speed_connect_cos'], x['enemy_speed_connect_cos']),
                                                axis=1)
-            # 筛除非领先追逐数据
-            data.loc[(data['is_lead_chase'] == -1) & (data['label'] == 1),
-                     'label'] = 0
 
+            # 筛除不能开火标签(非领先追逐且两机距离大于500)
+            '''
+            data['label'] = data.apply(lambda x: 0 if x['is_lead_chase'] == -1
+                                       or x['distance'] > 500 else x['label'],
+                                       axis=1)
+            '''
             data.fillna(0, inplace=True)
             data.dropna(inplace=True)
             data.to_csv('a2a_fe.csv', index=False)
@@ -423,13 +433,17 @@ class AtoA:
             # 计算是否领先追逐
             data['is_lead_chase'] = data.apply(lambda x: self._is_lead_chase(
                 x['x'], x['y'], x['z'], x['enemy_x'], x['enemy_y'], x[
-                    'enemy_z'], x['speed_x'], x['speed_y'], x['speed_z'], x[
-                        'speed_connect_cos'], x['enemy_speed_connect_cos']),
+                    'enemy_z'], x['speed_x'], x['speed_y'], x['speed_z'],
+                x['enemy_speed_x'], x['enemy_speed_y'], x['enemy_speed_z'], x[
+                    'speed_connect_cos'], x['enemy_speed_connect_cos']),
                                                axis=1)
-            # 筛除不能开火标签
+
+            # 筛除不能开火标签(非领先追逐且两机距离大于500)
+            '''
             data['label'] = data.apply(lambda x: 0 if x['is_lead_chase'] == -1
                                        or x['distance'] > 500 else x['label'],
                                        axis=1)
+            '''
 
             data.fillna(0, inplace=True)
             data.dropna(inplace=True)
