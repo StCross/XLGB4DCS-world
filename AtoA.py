@@ -449,6 +449,14 @@ class AtoA:
                                            'distance'] > 1000 else x['label'],
                                        axis=1)
 
+            # 筛除不能开火标签(两机距离大于1000或非领先追逐)
+            '''
+            data['label'] = data.apply(lambda x: 0
+                                       if x['is_lead_chase'] < 0 or x[
+                                           'distance'] > 1000 else x['label'],
+                                       axis=1)
+            '''
+
             data.fillna(0, inplace=True)
             data.dropna(inplace=True)
             data.to_csv('a2a_fe.csv', index=False)
