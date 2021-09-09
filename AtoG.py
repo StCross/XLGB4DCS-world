@@ -39,10 +39,12 @@ class AtoG:
 
     @staticmethod
     def _curvature(x, y):  # 计算某一点曲率半径，在FE中调用
-        '''
-        input  : 三个二维点(x1,y1)(x2,y2)(x3,y3)的坐标列表，形如x = (x1,x2,x3),y = (y1,y2,y3)
-        output : 点(x2,y2)处的曲率半径
-        '''
+        """
+        Args: 
+            三个二维点(x1,y1)(x2,y2)(x3,y3)的坐标列表，形如x = (x1,x2,x3),y = (y1,y2,y3)
+        Returns: 
+            点(x2,y2)处的曲率半径
+        """
         t_a = la.norm([x[1] - x[0], y[1] - y[0]])
         t_b = la.norm([x[2] - x[1], y[2] - y[1]])
 
@@ -56,7 +58,18 @@ class AtoG:
         return kappa
 
     @staticmethod
-    def _geodistance(lng1, lat1, lng2, lat2):  # 给定经纬度计算两点间距离(米)
+    def _geodistance(lng1, lat1, lng2, lat2):
+        """给定经纬度计算两点间距离(米)
+
+        Args:
+            lng1 (float): p1经度
+            lat1 (float): p1纬度
+            lng2 (float): p2经度
+            lat2 (float): p2纬度
+
+        Returns:
+            distance: 两点之间直线距离
+        """
         lng1, lat1, lng2, lat2 = map(
             radians,
             [float(lng1), float(lat1),
