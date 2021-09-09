@@ -156,29 +156,6 @@ class AtoA:
         return data
 
     @staticmethod
-    def _LatLng2Degree(LatZero, LngZero, Lat, Lng):
-        """
-        计算我敌连线朝向, 正北方向为0度,逆时针
-        Args:
-            point p1(latA, lonA)
-            point p2(latB, lonB)
-        Returns:
-            bearing between the two GPS points,
-            default: the basis of heading direction is north
-        """
-        radLatA = math.radians(LatZero)
-        radLonA = math.radians(LngZero)
-        radLatB = math.radians(Lat)
-        radLonB = math.radians(Lng)
-        dLon = radLonB - radLonA
-        y = math.sin(dLon) * math.cos(radLatB)
-        x = math.cos(radLatA) * math.sin(radLatB) - math.sin(
-            radLatA) * math.cos(radLatB) * math.cos(dLon)
-        brng = math.degrees(math.atan2(y, x))
-        brng = (brng + 360) % 360
-        return brng
-
-    @staticmethod
     def _caculate_speed_connect_cos(x, y, z, enemy_x, enemy_y, enemy_z,
                                     speed_x, speed_y, speed_z):
         """
@@ -197,47 +174,6 @@ class AtoA:
             connect_vec.dot(connect_vec) * my_speed_vec.dot(my_speed_vec))
 
         return speed_connect_cos
-
-    @staticmethod
-    def _is_lead_chase(x, y, z, enemy_x, enemy_y, enemy_z, speed_x, speed_y,
-                       speed_z, enemy_speed_x, enemy_speed_y, enemy_speed_z,
-                       speed_connect_cos, enemy_speed_connect_cos):
-        """
-        判断领先追逐态势
-        Args:
-            x, y, z: 我机坐标
-            enemy_x, enemy_y, enemy_z：敌机坐标
-            speed_x, speed_y, speed_z: 我机或敌机速度
-            speed_connect_cos: 我机速度与我敌连线夹角
-            enemy_speed_connect_cos：敌机速度与我敌连线夹角
-        Returns:
-            R+: 领先追逐
-            R-: 滞后追逐
-            -1000:非追逐
-        """
-        point_1 = np.array([x, y, z])
-        point_2 = np.array([enemy_x, enemy_y, enemy_z])
-        point_3 = np.array(
-            [x + speed_x * 0.05, y + speed_y * 0.05, z + speed_z * 0.05])
-        point_4 = np.array([
-            enemy_x + enemy_speed_x * 0.05, enemy_y + enemy_speed_y * 0.05,
-            enemy_z + enemy_speed_z * 0.05
-        ])
-        mat = np.vstack([point_1, point_2, point_3])
-        det = np.linalg.det(mat)
-
-        enemy_mat = np.vstack([point_1, point_2, point_4])
-        enemy_det = np.linalg.det(enemy_mat)
-
-        if det * enemy_det >= 0 and speed_connect_cos >= enemy_speed_connect_cos:
-            # 领先追逐或纯追逐
-            return speed_connect_cos - enemy_speed_connect_cos
-        elif det * enemy_det < 0 and speed_connect_cos > enemy_speed_connect_cos:
-            # 滞后追逐
-            return enemy_speed_connect_cos - speed_connect_cos
-        else:
-            # 非追逐
-            return -1000
 
     @staticmethod
     def _caculate_speed_cos(speed_x, speed_y, speed_z, enemy_speed_x,
@@ -261,16 +197,24 @@ class AtoA:
         return speed_cos
 
     def FE_DCS_new(self, data_):
+        """新DCS任务特征工程
+
+        Args:
+            data_ (dataframe): 原始数据
+
+        Returns:
+            data: 特征工程后数据
+        """
         data = data_.copy()
         data = data.sort_values(by=['id', 'ISO time'])
         data.reset_index(drop=True, inplace=True)
         data.rename(columns={
             'U': 'x',
-            'V': 'y',
-            'Altitude': 'z',
+            'V': 'z',
+            'Altitude': 'y',
             'enemy_U': 'enemy_x',
-            'enemy_V': 'enemy_y',
-            'enemy_Altitude': 'enemy_z',
+            'enemy_V': 'enemy_z',
+            'enemy_Altitude': 'enemy_y',
         },
                     inplace=True)
         if self.mode == 'offline':
@@ -630,7 +574,7 @@ class AtoA:
                     axis=1)
 
                 # 计算相对位置
-                for f in ['z', 'speed']:
+                for f in ['y', 'speed']:
                     data[f'relative_{f}'] = data[f'enemy_{f}'] - data[f'{f}']
 
                 # 筛除不能开火标签(两机距离大于1000或背对)
@@ -756,7 +700,7 @@ class AtoA:
             elif self.scale == 'light':
                 feature_names = [
                     'distance', 'speed_connect_cos', 'enemy_speed_connect_cos',
-                    'relative_z', 'speed_cos'
+                    'relative_y', 'speed_cos'
                 ]
             else:
                 feature_names = [
