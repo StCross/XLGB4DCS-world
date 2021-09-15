@@ -1,5 +1,5 @@
 # explanatory_software
 
 #### 介绍
-空战可解释项目
+可解释空战智能决策项目
 
